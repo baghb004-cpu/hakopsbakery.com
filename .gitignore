@@ -31,3 +31,8 @@ Thumbs.db
 # Scratch. Nothing in here is part of the site.
 scratch/
 *.local
+
+# Throwaway probes written while investigating a bug. A probe that proves
+# something real gets promoted into tests/ as a proper named test rather than
+# being committed from here.
+tests/__probe__/
