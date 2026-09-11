@@ -14,6 +14,26 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { parse } from "node-html-parser";
 
+/*
+  The Armenian faces are subsetted by scripts/subset-fonts.mjs down to the
+  characters the site actually uses, which took 60 KB off every page. The
+  hazard of subsetting is that new text renders as boxes and nothing says so,
+  so the generated pages are checked against the subset manifest.
+*/
+let armenianSubset = null;
+try {
+  const raw = await readFile(
+    new URL("../src/styles/armenian-subset.json", import.meta.url),
+    "utf8",
+  );
+  armenianSubset = new Set(JSON.parse(raw).codepoints);
+} catch {
+  /* No manifest means the fonts were never subsetted. Nothing to enforce. */
+}
+
+const isArmenian = (cp) =>
+  (cp >= 0x0530 && cp <= 0x058f) || (cp >= 0xfb13 && cp <= 0xfb17);
+
 const DIST = join(process.cwd(), "dist");
 
 const RED = "\x1b[31m", YEL = "\x1b[33m", GRN = "\x1b[32m";
@@ -263,6 +283,24 @@ for await (const file of htmlFiles(DIST)) {
   if (EM_DASH.test(bodyText)) {
     const at = bodyText.search(EM_DASH);
     fail("em-dash", `An em dash reached the rendered page near: "${bodyText.slice(Math.max(0, at - 40), at + 40).replace(/\s+/g, " ").trim()}"`);
+  }
+
+  /* ---- Armenian text outside the subsetted glyph set ---- */
+
+  if (armenianSubset) {
+    const missing = new Set();
+    for (const ch of bodyText) {
+      const cp = ch.codePointAt(0);
+      if (isArmenian(cp) && !armenianSubset.has(cp)) missing.add(ch);
+    }
+    if (missing.size > 0) {
+      fail(
+        "armenian-not-subsetted",
+        `Armenian characters on this page are not in the subsetted fonts: ${[...missing].join(" ")}.\n` +
+          "        They will render in a fallback face or as boxes. Run npm run fonts:subset\n" +
+          "        and commit the result.",
+      );
+    }
   }
 
   /* ---- The legal requirement ---- */
