@@ -1,45 +1,52 @@
 /**
- * The server calls the islands are allowed to make, and the shapes both
- * sides agree on.
+ * The server calls the islands make, and the shapes both sides agree on.
  *
  * The public site is static HTML. These four endpoints are the only moments
  * it talks to a server, so the contract is written down once, here, rather
  * than as a fetch call improvised inside each island.
  *
+ * THESE TYPES MIRROR netlify/functions. They are hand written rather than
+ * imported, because a function module pulls in zod, the Netlify types and
+ * the server configuration loader, none of which belong in a browser bundle.
+ * The price of that is drift, and the guard against it is that every one of
+ * these shapes is a copy of a response literal in the function named above
+ * it. If you change a function, change the interface here in the same
+ * sitting.
+ *
  * Two rules govern every request in this file.
  *
  *   1. A price is never sent. A request carries a sku, a variant id and a
  *      quantity. The function resolves the money from the same catalog the
- *      site was built from. Section 4 of docs/ARCHITECTURE.md.
+ *      site was built from, and strips anything that looks like a price out
+ *      of the request before it starts. Section 4 of docs/ARCHITECTURE.md.
  *   2. Availability is never cached. A sold out bake date has to be sold out
- *      in the picker, not a surprise at payment, so every availability read
- *      goes out with no-store.
- *
- * NOTE FOR WHOEVER WRITES netlify/functions: these are the shapes the islands
- * already speak. See the summary at the end of the islands work for the full
- * list, including the waitlist endpoint, which docs/ARCHITECTURE.md does not
- * yet name.
+ *      in the picker, not a surprise at payment, so every read goes out with
+ *      no-store.
  */
 
-import type { CartLine, Fulfillment } from "@lib/cart";
-import type { FulfillmentMode, FulfillmentResult } from "@lib/zones";
-import type { BakeSchedule, IsoDate } from "@lib/bake-schedule";
+import type { CartLine } from "@lib/cart";
+import type { FulfillmentDenialReason, FulfillmentMode } from "@lib/zones";
+import type { BakeDateStatus, IsoDate, Weekday } from "@lib/bake-schedule";
+import type { ZipRejectionReason } from "@lib/california";
 
 /* ------------------------------------------------------------------ */
 /* Addresses                                                           */
 /* ------------------------------------------------------------------ */
 
 /**
- * Netlify serves functions from this prefix on the same origin, which is why
- * the Content Security Policy in netlify.toml can keep connect-src at 'self'.
- * Every island takes its endpoint as a prop so a page, a test or a preview
- * can point it somewhere else without editing this file.
+ * Each function declares its own `config.path`, so these are the real
+ * addresses rather than the /.netlify/functions/ default. They are on the
+ * same origin, which is why the Content Security Policy in netlify.toml can
+ * keep connect-src at 'self'.
+ *
+ * Every island takes its endpoint as a prop, so a page, a test or a preview
+ * can point one somewhere else without editing this file.
  */
 export const ENDPOINTS = {
-  deliveryZone: "/.netlify/functions/check-delivery-zone",
-  availability: "/.netlify/functions/check-availability",
-  checkout: "/.netlify/functions/create-checkout-session",
-  waitlist: "/.netlify/functions/join-waitlist",
+  deliveryZone: "/api/check-delivery-zone",
+  availability: "/api/check-availability",
+  checkout: "/api/create-checkout-session",
+  subscribe: "/api/subscribe",
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -49,41 +56,83 @@ export const ENDPOINTS = {
 /**
  * The California gate, first of the three places it is enforced.
  *
- * `lines` is sent instead of a subtotal on purpose. Some modes carry a
- * minimum order, and the only honest way to judge a minimum is for the
- * server to price the cart itself from the catalog.
+ * The function answers 200 for any well formed request: a ZIP in Nevada is
+ * an answer, not an error, and the caller reads `inCalifornia` rather than
+ * the status code. It resolves all three modes at once so the picker can
+ * refuse delivery and offer shipping in the same breath.
+ *
+ * A subtotal may be sent, and this site does not send one. The minimum that
+ * decides anything is checked at checkout against a subtotal the server
+ * worked out from the catalog, and a browser that sends money is a browser
+ * that has to be distrusted.
  */
 export interface ZoneRequest {
+  readonly zip: string;
   readonly mode: FulfillmentMode;
-  /** Raw as typed. The function normalizes it. Null for pickup. */
-  readonly zip: string | null;
-  readonly lines: readonly CartLine[];
 }
 
-/** The function answers with the result type from `src/lib/zones.ts`. */
-export type ZoneResponse = FulfillmentResult;
+export interface ZoneModeAnswer {
+  readonly mode: FulfillmentMode;
+  readonly available: boolean;
+  readonly feeCents: number | null;
+  readonly minimumOrderCents: number | null;
+  readonly reason: FulfillmentDenialReason | null;
+  /** Plain language, written by `src/lib/zones.ts`. Ready to show. */
+  readonly message: string | null;
+  readonly shortfallCents: number | null;
+}
+
+export interface ZoneResponse {
+  readonly ok: true;
+  /** Normalized five digits, or null when the ZIP was not a California one. */
+  readonly zip: string | null;
+  readonly inCalifornia: boolean;
+  readonly reason: ZipRejectionReason | null;
+  readonly modes: readonly ZoneModeAnswer[];
+  readonly requestedMode: FulfillmentMode | null;
+  readonly sellsOnlyInCalifornia: boolean;
+}
 
 /* ------------------------------------------------------------------ */
 /* check-availability                                                  */
 /* ------------------------------------------------------------------ */
 
-/**
- * One pickup window on one bake date. Sold out windows come back in the list
- * rather than being filtered out, for the same reason sold out dates do: a
- * window that silently disappears reads as a bug.
- */
-export interface PickupSlot {
-  readonly id: string;
-  /** Customer facing, already formatted by the server. "4pm to 6pm". */
-  readonly label: string;
-  readonly soldOut: boolean;
+export interface AvailabilityDate {
+  readonly date: IsoDate;
+  readonly weekday: Weekday;
+  readonly status: BakeDateStatus;
+  /** True only when the date is open. The one field a picker needs. */
+  readonly selectable: boolean;
+  /** The instant ordering closes, ISO 8601. Format it in `timeZone`. */
+  readonly cutoffAt: string;
+  /** What is left. The ceiling itself stays on the server. */
+  readonly remainingPieces: number;
 }
 
 export interface AvailabilityResponse {
-  /** Built by `buildBakeSchedule()` server side, including unselectable dates. */
-  readonly schedule: BakeSchedule;
-  /** Keyed by bake date. A date with no windows posted yet is absent. */
-  readonly pickupSlots: Readonly<Record<IsoDate, readonly PickupSlot[]>>;
+  readonly ok: true;
+  readonly timeZone: string;
+  readonly today: IsoDate;
+  /** When this answer was computed, so a stale one is visible. */
+  readonly generatedAt: string;
+  /** Sold out, blacked out and closed dates are included, not filtered. */
+  readonly dates: readonly AvailabilityDate[];
+  readonly nextOpen: IsoDate | null;
+}
+
+/**
+ * A pickup window.
+ *
+ * check-availability does not return these yet, because Hakop has not set
+ * his pickup times. The shape is here, and FulfillmentPicker takes the list
+ * as a prop, so the day it becomes configuration there is one place to wire
+ * it in and nothing else changes.
+ */
+export interface PickupSlot {
+  readonly id: string;
+  /** Customer facing and already formatted. "4pm to 6pm". */
+  readonly label: string;
+  readonly soldOut: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -91,86 +140,105 @@ export interface AvailabilityResponse {
 /* ------------------------------------------------------------------ */
 
 /**
- * What the customer agreed to, recorded at the moment they agreed to it.
+ * What the customer agreed to.
  *
- * The wording version matters as much as the timestamp. If the county ever
- * asks for different disclosure wording, `compliance.disclosureVersion` is
- * bumped and every consent already recorded still names the wording that was
- * actually on screen. See docs/COMPLIANCE.md.
+ * The wording version matters as much as the tick. If the county ever asks
+ * for different disclosure wording, `compliance.disclosureVersion` is bumped
+ * and every consent already recorded still names the wording that was
+ * actually on screen. A request carrying a stale version is refused with
+ * `consent-version-stale` rather than quietly accepted.
  */
-export interface ConsentRecord {
-  /** compliance.disclosureVersion, passed in by the page. */
-  readonly disclosureVersion: string;
-  /** ISO 8601 instant, in UTC. */
-  readonly acceptedAt: string;
-  /**
-   * A reference generated in the browser so the customer, the consent record
-   * and the Stripe session all share one string. The server should store it
-   * and may still issue its own canonical order number: this is a reference,
-   * not an identity, and nothing server side should trust it to be unique.
-   */
-  readonly orderRef: string;
+export interface CheckoutConsent {
+  readonly accepted: boolean;
+  /** compliance.disclosureVersion, passed in to the island by the page. */
+  readonly version: string;
 }
 
 export interface CheckoutRequest {
   readonly lines: readonly CartLine[];
-  readonly fulfillment: Fulfillment;
-  readonly consent: ConsentRecord;
+  readonly fulfillment: {
+    readonly mode: FulfillmentMode;
+    readonly zip: string | null;
+    readonly bakeDate: IsoDate;
+    readonly slotId: string | null;
+  };
+  readonly consent: CheckoutConsent;
+  /**
+   * One id per checkout attempt, generated in the browser and kept across a
+   * retry. The server folds it into the fingerprint that produces the hold
+   * and the Stripe idempotency key, so a double tap on a slow connection
+   * cannot claim capacity twice or open two payment pages.
+   */
+  readonly requestId: string;
 }
 
-export interface CheckoutSuccess {
+export interface CheckoutResponse {
   readonly ok: true;
-  /** The Stripe Checkout URL to send the browser to. */
+  readonly sessionId: string;
+  /** Stripe Checkout. Send the browser here and nowhere else. */
   readonly url: string;
+  /** The order reference. Issued by the server, never by the browser. */
+  readonly orderRef: string;
+  readonly bakeDate: IsoDate;
+  /** When the capacity hold expires if payment is not completed. */
+  readonly expiresAt: string;
 }
 
-export type CheckoutResponse = CheckoutSuccess | ApiFailure;
-
 /* ------------------------------------------------------------------ */
-/* join-waitlist                                                       */
+/* subscribe                                                           */
 /* ------------------------------------------------------------------ */
 
-export interface WaitlistRequest {
+export interface SubscribeRequest {
   readonly email: string;
-  /** Which page they signed up from, so the list is worth something later. */
+  /** Must be true. The function refuses `consent-required` otherwise. */
+  readonly consent: boolean;
   readonly source: string;
-  /** Honeypot. A filled value means a robot. Always sent, usually empty. */
-  readonly company: string;
+  /** Honeypot. A filled value is a robot. Always sent, always empty. */
+  readonly website: string;
 }
 
-export type WaitlistResponse = { readonly ok: true } | ApiFailure;
+export interface SubscribeResponse {
+  readonly ok: true;
+  readonly status: "subscribed";
+  readonly message: string;
+  readonly consent?: {
+    readonly text?: string;
+    readonly version?: string;
+    readonly at?: string;
+    readonly usedFor?: string;
+    readonly notUsedFor?: string;
+    readonly unsubscribe?: string;
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /* Failure                                                             */
 /* ------------------------------------------------------------------ */
 
 /**
- * Codes an island changes its behaviour on. Anything else is shown to the
- * customer as the server's own sentence, because the server knows more about
- * what went wrong than a switch statement in a browser does.
+ * Every refusal is `{ ok: false, error: { code, message, ...extra } }` with a
+ * real HTTP status. The islands branch on a handful of these codes and show
+ * the server's own sentence for all the rest, because the function knows
+ * more about what went wrong than a switch statement in a browser does.
+ *
+ * Codes that change an island's behaviour rather than only its wording:
+ *
+ *   out-of-state, outside-delivery-area, zip-malformed, zip-missing,
+ *   below-minimum, mode-unavailable      the ZIP is no longer confirmed
+ *   bake-date-sold-out, bake-date-past-cutoff, bake-date-blackout,
+ *   bake-date-unavailable, bake-date-too-soon, bake-date-invalid
+ *                                        the chosen day is cleared
+ *   consent-version-stale                the page itself is out of date
+ *   store-closed                         ordering is not open after all
+ *   rate-limited                         wait, then retry
  */
-export const API_ERROR_CODES = [
-  "out-of-state",
-  "outside-delivery-area",
-  "zip-malformed",
-  "below-minimum",
-  "sold-out",
-  "past-cutoff",
-  "empty-cart",
-  "unavailable-variant",
-  "store-closed",
-  "rate-limited",
-] as const;
-
-export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
-
 export interface ApiFailure {
   readonly ok: false;
   readonly error: {
-    /** One of API_ERROR_CODES, or any other string the function wants. */
     readonly code: string;
-    /** Plain language, ready to show. Written by the function, not guessed. */
     readonly message: string;
+    /** Some refusals carry more: reference, currentVersion, status, date. */
+    readonly [key: string]: unknown;
   };
 }
 
@@ -181,18 +249,32 @@ export interface ApiFailure {
 /** Long enough for a cold function, short enough that nobody stares. */
 const DEFAULT_TIMEOUT_MS = 12_000;
 
-/** Why a request failed, in the words an island needs to branch on. */
-export type TransportCode = "timeout" | "network" | "server" | "bad-response";
+/** Why a request failed, when it failed before the server had an opinion. */
+export type TransportCode = "timeout" | "network" | "server" | "bad-response" | "aborted";
 
 export class EndpointError extends Error {
   readonly code: TransportCode | string;
   readonly status: number | null;
+  /** The rest of the error body, for the refusals that carry more. */
+  readonly details: Readonly<Record<string, unknown>>;
 
-  constructor(code: TransportCode | string, message: string, status: number | null = null) {
+  constructor(
+    code: TransportCode | string,
+    message: string,
+    status: number | null = null,
+    details: Readonly<Record<string, unknown>> = {},
+  ) {
     super(message);
     this.name = "EndpointError";
     this.code = code;
     this.status = status;
+    this.details = details;
+  }
+
+  /** A string field of the error body, when the server sent one. */
+  detail(key: string): string | null {
+    const value = this.details[key];
+    return typeof value === "string" && value.length > 0 ? value : null;
   }
 }
 
@@ -207,9 +289,9 @@ interface RequestOptions {
  * One fetch, with a timeout, and with every failure turned into an
  * EndpointError carrying a code an island can act on.
  *
- * A hung request is the worst of the failure modes because nothing on screen
- * changes, so the timeout is not optional and it is deliberately shorter than
- * a browser's own.
+ * A hung request is the worst of the failure modes, because nothing on
+ * screen changes and the customer cannot tell whether it is working. The
+ * timeout is not optional and it is deliberately shorter than a browser's.
  */
 export async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const { method = "POST", body, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
@@ -231,17 +313,17 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
   try {
     response = await fetch(url, {
       method,
-      /* Availability and eligibility are live answers. Never a cached one. */
+      /* A live answer, or no answer. Never a cached one. */
       cache: "no-store",
       credentials: "same-origin",
-      headers: body === undefined ? { Accept: "application/json" } : {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
+      headers:
+        body === undefined
+          ? { Accept: "application/json" }
+          : { Accept: "application/json", "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
-  } catch (cause) {
+  } catch {
     if (timedOut) {
       throw new EndpointError("timeout", "The request took too long to answer.");
     }
@@ -249,7 +331,7 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
       /* The island unmounted or moved on. Nothing to show anybody. */
       throw new EndpointError("aborted", "The request was cancelled.");
     }
-    throw new EndpointError("network", "The connection dropped before we got an answer.", null);
+    throw new EndpointError("network", "The connection dropped before we got an answer.");
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", onOuterAbort);
@@ -272,12 +354,14 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
   if (!response.ok) {
     const failure = parsed as Partial<ApiFailure> | null;
     const error = failure?.error;
+    const { code, message, ...rest } = error ?? {};
     throw new EndpointError(
-      typeof error?.code === "string" ? error.code : "server",
-      typeof error?.message === "string" && error.message.length > 0
-        ? error.message
+      typeof code === "string" ? code : "server",
+      typeof message === "string" && message.length > 0
+        ? message
         : "The server could not complete that request.",
       response.status,
+      rest,
     );
   }
 
@@ -293,22 +377,18 @@ const TRANSPORT_COPY: Readonly<Record<string, string>> = {
   network: "We could not reach the bakery. Check your connection and try again.",
   "bad-response": "Something answered, but not with an answer we understand.",
   server: "Something went wrong at our end, not at yours.",
-  "rate-limited": "That was a lot of requests at once. Wait a moment and try again.",
 };
 
 /**
  * A sentence to put in front of a customer.
  *
- * An EndpointError raised from a function response already carries the
- * function's own wording, and that wording wins: `zones.ts` and
- * `california.ts` own the sentences about eligibility, and nothing here
- * should invent a second version of them.
+ * A refusal from a function already carries the function's own wording, and
+ * that wording wins: `zones.ts` and `california.ts` own the sentences about
+ * eligibility, and nothing here should invent a second version of them.
  */
 export function friendlyError(cause: unknown): string {
   if (cause instanceof EndpointError) {
-    const known = TRANSPORT_COPY[cause.code];
-    if (known) return known;
-    return cause.message;
+    return TRANSPORT_COPY[cause.code] ?? cause.message;
   }
   return "Something went wrong. Try again in a moment.";
 }
@@ -316,6 +396,7 @@ export function friendlyError(cause: unknown): string {
 /** True when trying the same request again is a reasonable suggestion. */
 export function isRetryable(cause: unknown): boolean {
   if (!(cause instanceof EndpointError)) return true;
+  if (cause.code === "rate-limited") return true;
   return (
     cause.code === "timeout" ||
     cause.code === "network" ||

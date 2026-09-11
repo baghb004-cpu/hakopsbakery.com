@@ -1,0 +1,329 @@
+---
+/**
+ * 404.
+ *
+ * Designed rather than left to the host's default, because a real share of
+ * the people who land here arrived from a printed label or a link in a
+ * message, and the useful thing to do is get them to the answer they wanted
+ * rather than be clever at them.
+ *
+ * The drawing is the motif, used honestly: a row of pieces on the pan with a
+ * gap where one is missing, and the sesame scatter thinning out and stopping
+ * as it crosses the gap. It is decorative, so it is hidden from assistive
+ * technology and it carries no text.
+ *
+ * netlify.toml sends an unknown /p/* code here, so this page has to answer
+ * the scanned label case specifically. That block is the reason this page is
+ * worth more than a link back to the home page.
+ */
+import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import SeedRule from "@components/SeedRule.astro";
+import { business, storeOpen } from "@config/site";
+
+/*
+  The pieces on the pan. Positions are written out rather than generated: the
+  gap is the point of the drawing and it should be visible in the source.
+  The lean matches --row-lean, the shallow angle the rows sit at on the tray.
+*/
+const PIECES = [
+  { x: 6, present: true },
+  { x: 60, present: true },
+  { x: 114, present: true },
+  { x: 168, present: false },
+  { x: 222, present: true },
+  { x: 276, present: true },
+];
+
+/*
+  Real routes back, in the order somebody who landed here is likely to want
+  them. The shop only appears when there is a shop.
+*/
+const ROUTES = [
+  {
+    href: "/",
+    label: "The home page",
+    note: "The photographs, and the short version of everything.",
+  },
+  {
+    href: "/gata",
+    label: "What gata is",
+    note: "If somebody sent you the word and you have never eaten one.",
+  },
+  {
+    href: "/legal/allergens",
+    label: "The allergen statement",
+    note: "The page to read before ordering for anybody with an allergy.",
+  },
+  {
+    href: "/faq",
+    label: "Questions",
+    note: "Storage, lead times, delivery, pickup and shipping.",
+  },
+  {
+    href: "/contact",
+    label: "Contact",
+    note: "If you would rather just ask Hakop.",
+  },
+  ...(storeOpen
+    ? [{ href: "/shop", label: "The shop", note: "If you came here to order a tray." }]
+    : []),
+];
+
+/* Sesame, thinning left to right and stopping short of the edge. */
+const SEEDS = [
+  { x: 18, y: 14, a: 22 },
+  { x: 34, y: 30, a: -48 },
+  { x: 52, y: 9, a: 71 },
+  { x: 71, y: 26, a: 12 },
+  { x: 88, y: 38, a: -33 },
+  { x: 103, y: 15, a: 58 },
+  { x: 126, y: 33, a: -12 },
+  { x: 148, y: 20, a: 40 },
+  { x: 176, y: 36, a: -60 },
+  { x: 207, y: 17, a: 27 },
+  { x: 244, y: 31, a: -20 },
+];
+---
+
+<Base
+  title="Page not found"
+  description="That page is not here. Routes back to the gata, the questions, the allergen statement and Hakop."
+  noindex
+>
+  <article class="notfound">
+    <div class="page band--tight">
+      <div class="prose-col">
+        <h1>That page is not here</h1>
+        <p class="notfound__lede">
+          A gap in the tray. Nothing is wrong with your phone, and the link
+          that brought you here is either old or slightly mistyped.
+        </p>
+      </div>
+
+      <svg
+        class="tray"
+        width="330"
+        height="96"
+        viewBox="0 0 330 96"
+        role="presentation"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <!-- The pan. A line, not a box, so it reads as an edge. -->
+        <line x1="2" y1="86" x2="328" y2="86" class="tray__pan" />
+
+        {
+          PIECES.map((piece) =>
+            piece.present ? (
+              <rect
+                x={piece.x}
+                y={48}
+                width="44"
+                height="32"
+                rx="4"
+                class="tray__piece"
+                transform={`rotate(-7 ${piece.x + 22} 64)`}
+              />
+            ) : (
+              <rect
+                x={piece.x}
+                y={48}
+                width="44"
+                height="32"
+                rx="4"
+                class="tray__gap"
+                transform={`rotate(-7 ${piece.x + 22} 64)`}
+              />
+            ),
+          )
+        }
+
+        {
+          SEEDS.map((seed) => (
+            <ellipse
+              cx={seed.x}
+              cy={seed.y}
+              rx="3.6"
+              ry="1.9"
+              class="tray__seed"
+              transform={`rotate(${seed.a} ${seed.x} ${seed.y})`}
+            />
+          ))
+        }
+      </svg>
+    </div>
+
+    <SeedRule density="sparse" />
+
+    <section class="page band--tight" aria-labelledby="routes-title">
+      <div class="prose-col">
+        <h2 id="routes-title">Where you were probably going</h2>
+
+        <ul class="routes">
+          {
+            ROUTES.map((route) => (
+              <li class="routes__item">
+                <a class="routes__link" href={route.href}>
+                  <span class="routes__seed" aria-hidden="true" />
+                  {route.label}
+                </a>
+                <p class="routes__note">{route.note}</p>
+              </li>
+            ))
+          }
+        </ul>
+
+        <p class="notfound__actions">
+          <Button href="/" variant="primary">Back to the start</Button>
+          {
+            !storeOpen && (
+              <Button href="/#waitlist" variant="secondary">
+                Tell me when ordering opens
+              </Button>
+            )
+          }
+        </p>
+      </div>
+    </section>
+
+    <section class="page band--tight" aria-labelledby="scanned-title">
+      <div class="prose-col notfound__scanned">
+        <h2 id="scanned-title">If you scanned the code on a tray</h2>
+
+        <p>
+          Then this is our fault, not yours. The code did not match a product,
+          which usually means the label was printed before the product was
+          published.
+        </p>
+
+        <p>
+          <strong>The label on the tray is still the authority.</strong> The
+          ingredient list and the allergen line printed on it are correct, and
+          the{" "}
+          <a href="/legal/allergens">allergen statement</a> covers everything
+          baked in this kitchen: wheat, milk, egg, almonds, walnuts and sesame,
+          with cross contact possible on any piece.
+        </p>
+
+        <p>
+          Then please write to{" "}
+          <a href={`mailto:${business.email}?subject=Label%20code%20did%20not%20work`}>
+            {business.email}
+          </a>{" "}
+          and say what the code was. {business.owner} will fix it, and it
+          matters more than most things in his inbox.
+        </p>
+      </div>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .notfound__lede {
+    margin-top: 1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+    color: var(--color-crust-soft);
+  }
+
+  /* ---- The tray with a gap in it ---- */
+
+  .tray {
+    width: min(100%, 22rem);
+    height: auto;
+    margin-top: clamp(1.5rem, 5vw, 2.5rem);
+  }
+
+  .tray__pan {
+    stroke: var(--color-line-strong);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  .tray__piece {
+    fill: var(--color-eggwash);
+    stroke: var(--color-crust-soft);
+    stroke-width: 1;
+  }
+
+  /* The missing one. An outline where a piece should be, not a hole. */
+  .tray__gap {
+    fill: none;
+    stroke: var(--color-line-strong);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 5;
+  }
+
+  .tray__seed {
+    fill: var(--seed-ink);
+  }
+
+  /* ---- Routes ---- */
+
+  .routes {
+    margin: 1.1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .routes__item {
+    padding-block: 0.35rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .routes__item:last-child {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  /* A full width row, so the target is the whole line rather than four
+     words of link text inside a sentence. */
+  .routes__link {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-height: 44px;
+    color: var(--color-crust);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .routes__link:hover {
+    color: var(--color-stitch);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .routes__seed {
+    flex: none;
+    width: 8px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-24deg);
+  }
+
+  .routes__note {
+    margin: 0 0 0.6rem 1.5rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .notfound__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  /* ---- The scanned label case ---- */
+
+  .notfound__scanned {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .notfound__scanned p {
+    margin-top: 0.9rem;
+  }
+</style>

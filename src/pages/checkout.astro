@@ -1,0 +1,226 @@
+---
+/**
+ * The step before payment.
+ *
+ * WHAT THIS PAGE DOES NOT DO. It does not collect a card number, an expiry, a
+ * security code or a billing address. It never has and it never will: payment
+ * happens on Stripe's own page, on Stripe's own domain, and the only thing
+ * this site sends is a list of skus, variant ids and quantities. The server
+ * resolves the money from the catalog. A browser that sends a price is a
+ * browser that has to be distrusted.
+ *
+ * WHAT IT DOES DO.
+ *
+ *   1. Says what is still missing, in a list, rather than greying out a
+ *      button and leaving somebody to guess.
+ *   2. Takes the acknowledgement California requires: the food is made in a
+ *      home kitchen that is not inspected. The tick is recorded with the date
+ *      and the version of the wording that was on screen, so a later change
+ *      to that wording cannot rewrite what somebody agreed to.
+ *   3. Runs the California check on the ZIP one more time immediately before
+ *      the money, which is the first of the three places that check happens.
+ *      See docs/ARCHITECTURE.md Section 5. The other two are inside the
+ *      checkout function and inside the webhook, and the webhook one is the
+ *      only one that cannot be bypassed.
+ *
+ * The legally required wording is passed into the island as a slot, so
+ * `ComplianceLine` stays the single component in this codebase that prints
+ * the county, the registration number and the home kitchen statement.
+ *
+ * With the store closed the island renders its own explanation as plain HTML
+ * and is deliberately mounted without a client directive: there is nothing to
+ * interact with, so there is no reason to ship a React bundle to read it.
+ */
+import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import ComplianceLine from "@components/ComplianceLine.astro";
+import SeedRule from "@components/SeedRule.astro";
+import CheckoutGate from "@islands/CheckoutGate";
+
+import { business, compliance, storeOpen } from "@config/site";
+---
+
+<Base
+  title="Checkout"
+  description="The last step before payment. Payment is taken on Stripe's own page, and no card details are collected on this site."
+>
+  <div class="page band--tight">
+    <header class="intro prose-col">
+      <h1>Checkout</h1>
+      {
+        storeOpen ? (
+          <p class="intro__lede">
+            One box to tick, then payment. Card details are entered on Stripe's
+            page, not on this one, and nothing is charged until you finish
+            there.
+          </p>
+        ) : (
+          <p class="intro__lede">
+            Payment is not switched on yet. The county registration is still in
+            progress, and until the number exists nothing on this site can take
+            an order or a card.
+          </p>
+        )
+      }
+    </header>
+
+    <div class="gate">
+      {
+        storeOpen ? (
+          <CheckoutGate
+            client:visible
+            storeOpen={storeOpen}
+            disclosureVersion={compliance.disclosureVersion}
+            homeKitchenStatement={compliance.homeKitchenStatement}
+            pickerHref="/cart#fulfillment"
+            shopHref="/shop"
+            allergenHref="/legal/allergens"
+            contactEmail={business.email}
+            headingLevel={2}
+          >
+            <ComplianceLine variant="checkout" slot="disclosure" />
+          </CheckoutGate>
+        ) : (
+          <>
+            <CheckoutGate
+              storeOpen={false}
+              disclosureVersion={compliance.disclosureVersion}
+              homeKitchenStatement={compliance.homeKitchenStatement}
+              shopHref="/shop"
+              contactEmail={business.email}
+              headingLevel={2}
+            />
+            {/*
+              The gate's closed state has no room for the full disclosure, so
+              the page shows it directly. It is the same component and the
+              same wording either way.
+            */}
+            <div class="gate__disclosure">
+              <ComplianceLine variant="checkout" />
+            </div>
+            <p class="gate__action">
+              <Button href="/#waitlist" variant="secondary" size="lg">
+                Tell me when ordering opens
+              </Button>
+            </p>
+          </>
+        )
+      }
+    </div>
+  </div>
+
+  <SeedRule density="sparse" />
+
+  <section class="page band--tight" aria-labelledby="terms-title">
+    <h2 id="terms-title">Before you pay, in plain words</h2>
+
+    <dl class="facts">
+      <div class="facts__row">
+        <dt>Payment</dt>
+        <dd>
+          Stripe takes it on their own page. No card number, expiry or security
+          code is typed into this site or stored by it. You come back here
+          afterwards with an order reference.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>The price</dt>
+        <dd>
+          Worked out again on the server from the same catalog this page was
+          built from, so the figure you are charged is the figure that is
+          listed. Delivery or shipping and any tax are added there.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Where it can go</dt>
+        <dd>
+          California only. A cottage food operation may not sell across a
+          state line. If the address is changed to one outside the state after
+          payment, the order is refunded in full and you are emailed to say
+          why.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Changes and refunds</dt>
+        <dd>
+          Every tray is baked for a named day, so a late cancellation is
+          different from an early one. What applies is set out in{" "}
+          <a href="/legal/refunds">refunds and cancellations</a>. Read it before
+          you pay, not after.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Allergies</dt>
+        <dd>
+          One kitchen, handling wheat, milk, egg, almonds, walnuts and sesame.
+          The full wording is in the{" "}
+          <a href="/legal/allergens">allergen statement</a>.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Questions</dt>
+        <dd>
+          Write to <a href={`mailto:${business.email}`}>{business.email}</a>.
+          A person answers, and it is usually {business.owner.split(" ")[0]}.
+        </dd>
+      </div>
+    </dl>
+  </section>
+</Base>
+
+<style>
+  .intro__lede {
+    margin-top: 0.9rem;
+    font-size: var(--text-lg);
+    color: var(--color-crust-soft);
+  }
+
+  .gate {
+    margin-top: 1.75rem;
+    max-width: 44rem;
+  }
+
+  .gate__disclosure {
+    margin-top: 1.25rem;
+  }
+
+  .gate__action {
+    margin-top: 1.25rem;
+  }
+
+  .facts {
+    margin: 1.25rem 0 0;
+    display: grid;
+    max-width: 54rem;
+  }
+
+  .facts__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding-block: 0.9rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .facts__row:last-child {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .facts dt {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+  }
+
+  .facts dd {
+    margin: 0;
+    color: var(--color-crust-soft);
+    max-width: 66ch;
+  }
+
+  @media (min-width: 40rem) {
+    .facts__row {
+      grid-template-columns: 12rem minmax(0, 1fr);
+      gap: 0.5rem 1.5rem;
+    }
+  }
+</style>

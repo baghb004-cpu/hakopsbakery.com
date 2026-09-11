@@ -1,0 +1,345 @@
+---
+/**
+ * The wrapper every page under /legal uses.
+ *
+ * A legal page on a food site is not filler. Somebody reads the allergen page
+ * because they are deciding whether they can safely eat this, and somebody
+ * reads the refunds page because something went wrong. So these pages get a
+ * real measure (`.prose-col`, which caps the line near 70 characters), a
+ * visible last updated date, and a table of contents on the longer ones.
+ *
+ * The date is a prop rather than a build timestamp on purpose. "Last updated"
+ * has to mean "somebody last read this and agreed with it", not "the site was
+ * rebuilt", or it is a lie that gets more convincing every deploy.
+ */
+import Base from "@layouts/Base.astro";
+import SeedRule from "@components/SeedRule.astro";
+import { business } from "@config/site";
+
+export interface TocEntry {
+  /** Must match the id on the corresponding section heading. */
+  readonly id: string;
+  readonly label: string;
+}
+
+interface Props {
+  title: string;
+  description: string;
+  /** ISO date, YYYY-MM-DD. The day a human last read the page, not a build. */
+  updated: string;
+  /** One paragraph under the heading. Optional, but most pages want one. */
+  lede?: string;
+  /** Marks the whole page as not yet agreed. Renders the draft notice slot. */
+  status?: "current" | "draft";
+  toc?: readonly TocEntry[];
+}
+
+const { title, description, updated, lede, status = "current", toc = [] } = Astro.props;
+
+/*
+  Formatted in UTC from a noon timestamp so that the printed date is the date
+  in the prop, whatever timezone the build machine happens to be set to.
+*/
+const updatedLabel = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+}).format(new Date(`${updated}T12:00:00Z`));
+
+const LEGAL_PAGES = [
+  { href: "/legal/allergens", label: "Allergens" },
+  { href: "/legal/refunds", label: "Refunds and cancellations" },
+  { href: "/legal/terms", label: "Terms of sale" },
+  { href: "/legal/privacy", label: "Privacy" },
+  { href: "/legal/accessibility", label: "Accessibility" },
+];
+
+const here = Astro.url.pathname.replace(/\/$/, "");
+const elsewhere = LEGAL_PAGES.filter((page) => page.href !== here);
+---
+
+<Base title={title} description={description}>
+  <article class="legal">
+    <div class="page band--tight">
+      <div class="prose-col">
+        <h1>{title}</h1>
+        {lede && <p class="legal__lede">{lede}</p>}
+
+        <p class="legal__meta">
+          Last updated <time datetime={updated} class="tabular">{updatedLabel}</time>.
+        </p>
+
+        {
+          status === "draft" && (
+            <aside class="draft" aria-labelledby="draft-title">
+              <p id="draft-title" class="draft__title">
+                <span class="draft__seed" aria-hidden="true" />
+                This page is a draft
+              </p>
+              <div class="draft__body">
+                <slot name="draft-note" />
+              </div>
+            </aside>
+          )
+        }
+      </div>
+    </div>
+
+    <SeedRule density="sparse" />
+
+    <div class="page legal__grid">
+      {
+        toc.length > 0 && (
+          <nav class="toc" aria-labelledby="toc-title">
+            <h2 id="toc-title" class="toc__title">
+              On this page
+            </h2>
+            <ul class="toc__list">
+              {toc.map((entry) => (
+                <li>
+                  <a class="toc__link" href={`#${entry.id}`}>
+                    {entry.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+
+      <div class="legal__prose prose-col">
+        <slot />
+      </div>
+    </div>
+
+    <div class="page legal__foot">
+      <div class="prose-col">
+        <h2 class="legal__foot-title">If something here is wrong</h2>
+        <p>
+          Write to <a href={`mailto:${business.email}`}>{business.email}</a> and
+          say which page and what is wrong with it. {business.owner} reads it
+          himself. A page that is out of date is worth telling him about.
+        </p>
+
+        <nav class="legal__other" aria-label="Other pages in the small print">
+          <ul class="legal__other-list">
+            {
+              elsewhere.map((page) => (
+                <li>
+                  <a href={page.href}>{page.label}</a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .legal__lede {
+    margin-top: 1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+    color: var(--color-crust-soft);
+  }
+
+  .legal__meta {
+    margin-top: 1rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  /* ---- The draft notice ---- */
+
+  .draft {
+    margin-top: 1.5rem;
+    padding: clamp(0.9rem, 3vw, 1.15rem);
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line-strong);
+    border-left: 4px solid var(--color-pomegranate);
+    border-radius: var(--radius-md);
+  }
+
+  .draft__title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 700;
+    color: var(--color-crust);
+  }
+
+  .draft__seed {
+    flex: none;
+    width: 8px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--color-pomegranate);
+    transform: rotate(-24deg);
+  }
+
+  .draft__body {
+    margin-top: 0.5rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .draft__body :global(p + p) {
+    margin-top: 0.8em;
+  }
+
+  /* ---- Body and contents ---- */
+
+  .legal__grid {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: start;
+    padding-block: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  /* The contents sits beside the text once there is room for it, and above
+     the text when there is not. It never becomes a floating panel. */
+  @media (min-width: 62rem) {
+    .legal__grid {
+      grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+    }
+
+    .toc {
+      position: sticky;
+      top: 6rem;
+    }
+  }
+
+  .toc__title {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--color-crust-soft);
+  }
+
+  .toc__list {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+  }
+
+  /*
+    The hairline and the breathing room belong to the row, not to the link.
+    Whitespace inside a target is still part of that target, so a 44px link
+    carrying its own divider leaves neighbouring hit areas flush against each
+    other. Separating them here keeps the divided list and puts real space
+    between the two things a thumb is choosing between.
+  */
+  .toc__list > li {
+    padding-block: 0.3rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .toc__link {
+    display: flex;
+    align-items: center;
+    /* 44px tap target, with at least 8px of clear space to the next one. */
+    min-height: 44px;
+    color: var(--color-stitch);
+    font-size: var(--text-sm);
+    text-decoration: none;
+  }
+
+  .toc__link:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  /* ---- The slotted body ---- */
+
+  .legal__prose :global(h2) {
+    font-size: var(--text-xl);
+    margin-top: 2.25rem;
+    /* Anchored headings clear the sticky masthead. */
+    scroll-margin-top: 6rem;
+  }
+
+  .legal__prose :global(h2:first-child) {
+    margin-top: 0;
+  }
+
+  .legal__prose :global(h3) {
+    font-size: var(--text-lg);
+    margin-top: 1.6rem;
+  }
+
+  .legal__prose :global(p),
+  .legal__prose :global(ul),
+  .legal__prose :global(ol) {
+    margin-top: 0.9rem;
+  }
+
+  .legal__prose :global(ul),
+  .legal__prose :global(ol) {
+    padding-left: 1.2rem;
+  }
+
+  .legal__prose :global(li + li) {
+    margin-top: 0.45rem;
+  }
+
+  .legal__prose :global(strong) {
+    font-weight: 700;
+  }
+
+  /* A pulled out sentence that matters more than the ones around it. */
+  .legal__prose :global(.pullout) {
+    margin-top: 1.2rem;
+    padding: 0.9rem 1.05rem;
+    background-color: var(--color-sesame-deep);
+    border-left: 3px solid var(--color-pomegranate);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  }
+
+  .legal__prose :global(.unsettled) {
+    margin-top: 1.2rem;
+    padding: 0.9rem 1.05rem;
+    border: 1px dashed var(--color-line-strong);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .legal__prose :global(.unsettled-title) {
+    font-weight: 700;
+    color: var(--color-crust);
+  }
+
+  /* ---- Foot ---- */
+
+  .legal__foot {
+    padding-block: clamp(1.5rem, 4vw, 2.5rem) clamp(2rem, 5vw, 3rem);
+    border-top: 1px solid var(--color-line);
+  }
+
+  .legal__foot-title {
+    font-size: var(--text-xl);
+    margin-bottom: 0.9rem;
+  }
+
+  .legal__other-list {
+    display: flex;
+    flex-wrap: wrap;
+    /* A row gap, not zero: these wrap to two and three lines on a phone and
+       the links are 44px tall, so without it the rows would touch. */
+    gap: 0.5rem 1.5rem;
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    font-size: var(--text-sm);
+  }
+
+  .legal__other-list a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+</style>

@@ -1,0 +1,465 @@
+---
+/**
+ * Order status. No account, no password, no login.
+ *
+ * WHY THE ROUTE IS `/order/confirmed/` AND THE ORDER TRAVELS IN THE QUERY.
+ *
+ * The site is a static build, so a route parameter can only ever be a value
+ * that existed at build time. Orders do not: they are created by strangers,
+ * hours or months after the last deploy. Pre-rendering a page per order is
+ * therefore impossible, and it would be the wrong shape even if it were
+ * possible, because a directory of order pages on a CDN is a directory
+ * somebody can walk.
+ *
+ * So `[id]` resolves to exactly one static page, `confirmed`, and the order
+ * itself is named in the query string with a signed token beside it:
+ *
+ *     /order/confirmed/?session_id=cs_test_a1b2c3
+ *     /order/confirmed/?ref=HB-1A2B3C4D5E&t=<signature>
+ *
+ * That address is not a guess. `create-checkout-session` builds Stripe's
+ * `success_url` from `CHECKOUT_SUCCESS_PATH`, which defaults to
+ * `/order/confirmed/`, and Stripe appends `?session_id={CHECKOUT_SESSION_ID}`
+ * on its way back. Renaming this file breaks that redirect, so do not.
+ *
+ * The token is the whole of the security model and it is worth stating
+ * plainly: it is a signature produced by the server over the order reference,
+ * with a server side secret and an expiry, verified on every read. A customer
+ * who has the link can read their own order and nobody else's. A reference on
+ * its own opens nothing, which is what makes it safe to print one on a bake
+ * list and read one out over the phone.
+ *
+ * ============================================================
+ *  TODO, PHASE 2. WIRING THE REAL LOOKUP. THIS IS THE WHOLE JOB.
+ * ============================================================
+ *
+ * There is no database yet, so the page below renders one clearly marked
+ * example order. When the order store exists (`netlify/functions/_shared/
+ * store.ts`, the same one `stripe-webhook.ts` writes into) this page changes
+ * as follows, and nothing else on it moves.
+ *
+ *  1. Add `netlify/functions/order-status.ts`, `config.path =
+ *     "/api/order-status"`, POST only, same `requestJson` contract the other
+ *     four endpoints use. It accepts EITHER
+ *         { sessionId: string }              the Stripe return
+ *         { ref: string, token: string }     the link in the email
+ *     and answers `{ ok: true, order: OrderStatus }` or the standard
+ *     `{ ok: false, error: { code, message } }`. Add the matching
+ *     `OrderStatus` interface and `ENDPOINTS.orderStatus` to
+ *     `src/islands/endpoints.ts`, next to the four that are already there.
+ *
+ *  2. Verify before reading. For a `sessionId`, retrieve the session from
+ *     Stripe and take the order reference from `client_reference_id`, so
+ *     holding the session id is what authorises the read. For a `ref`, recompute the
+ *     HMAC over the reference with the server secret and compare it to
+ *     `token` in constant time, and refuse an expired one. Never look an
+ *     order up by reference alone. Rate limit by IP with the same limiter
+ *     the other functions use, so the endpoint cannot be walked.
+ *
+ *  3. Return only what this page prints: reference, status, bake date,
+ *     fulfillment mode, the pickup window or the delivery or shipping town,
+ *     the line items as name, size and quantity, and the tracking number if
+ *     one exists. No card details, no email address, no street address for a
+ *     delivery, and no Stripe object. A page that shows a stranger somebody's
+ *     address because they guessed a reference is the failure to design out.
+ *
+ *  4. Mount a small island here, `client:load`, that reads the query string,
+ *     calls the endpoint and renders the same blocks below from the answer.
+ *     `client:load` rather than idle: somebody has just paid and is looking
+ *     at this page waiting to be told it worked. While it is in flight, show
+ *     the reference and "checking with the kitchen"; on a failure, show the
+ *     reference and the contact line, never a blank page. Delete the example
+ *     block and the notice at the top with it.
+ *
+ *  5. The webhook may not have landed yet when Stripe redirects, so a
+ *     `payment_status` of `paid` with no order row is normal for a second or
+ *     two. Poll twice, a second apart, before saying anything is wrong.
+ *
+ * Until all five are done this page shows an example and says so, which is
+ * better than a spinner that never resolves.
+ */
+import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import ComplianceLine from "@components/ComplianceLine.astro";
+import SeedRule from "@components/SeedRule.astro";
+
+import { business, storeOpen } from "@config/site";
+import { listProducts } from "@lib/catalog-source";
+
+/*
+  One page, not one page per order. See the note above. A request for any
+  other `/order/<something>/` is a 404, which is the right answer: an order is
+  never addressed by a bare path on this site.
+*/
+export function getStaticPaths() {
+  return [{ params: { id: "confirmed" } }];
+}
+
+/* ------------------------------------------------------------------ */
+/* THE EXAMPLE ORDER                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+  Every value in this block is invented so that the page can be built, read
+  and tested before a real order exists. It is never fetched, never stored,
+  and it is deleted in step 4 above. The product name and the size come from
+  the real catalog so the layout is exercised with the real strings.
+
+  Money is deliberately absent. Stripe emails the receipt and it is the
+  authority on what was charged, and the figures in the catalog today are
+  still placeholders that nobody has agreed to. When the lookup lands, the
+  paid total comes from the order record and can be printed here.
+*/
+const products = await listProducts();
+const first = products[0] ?? null;
+
+const EXAMPLE = {
+  reference: "HB-EXAMPLE01",
+  placedOn: "2026-10-01",
+  bakeDate: "2026-10-03",
+  status: "In the book",
+  statusDetail:
+    "Paid in full. The tray is on the bake list for the day below, and the " +
+    "receipt is in the email from Stripe.",
+  mode: "pickup" as const,
+  window: "4pm to 6pm",
+  lines: [
+    {
+      name: first?.name ?? "Armenian Gata",
+      size: first?.variants[0]?.label ?? "Half tray",
+      qty: 1,
+    },
+  ],
+} as const;
+
+/* A civil date, formatted without letting a timezone shift the day. The same
+   reasoning as `formatBakeDate` in src/islands/shared.ts. */
+function civilDate(date: string): string {
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(parsed);
+}
+
+const bakeDateLabel = civilDate(EXAMPLE.bakeDate);
+const placedLabel = civilDate(EXAMPLE.placedOn);
+
+/*
+  Two true sentences for two different situations. Neither of them pretends
+  this is somebody's order.
+*/
+const exampleNotice = storeOpen
+  ? "This is an example order, not yours. The live order lookup is not connected yet. If you have a reference, write to the address at the foot of this page and Hakop will answer with the real status."
+  : "This is an example order. Ordering is not open yet, so no real order exists to show. The page is here so that the day one does, it already works.";
+---
+
+<Base
+  title={`Order ${EXAMPLE.reference}`}
+  description="Order status, with where and when to collect."
+  noindex
+>
+  <div class="page band--tight">
+    <p class="example" role="note">
+      <strong class="example__title">Example order</strong>
+      <span class="example__body">{exampleNotice}</span>
+    </p>
+
+    <header class="head">
+      <h1 class="head__title">
+        Order <span class="tabular">{EXAMPLE.reference}</span>
+      </h1>
+      <p class="head__status">
+        <span class="head__dot" aria-hidden="true"></span>
+        {EXAMPLE.status}
+      </p>
+      <p class="head__detail">{EXAMPLE.statusDetail}</p>
+    </header>
+
+    {
+      /*
+        First on the page, deliberately. Somebody opening this on a phone in a
+        car wants one thing: where do I go and when. Everything else can wait
+        until they have read that.
+      */
+    }
+    <section class="collect" aria-labelledby="collect-title">
+      <h2 class="collect__title" id="collect-title">
+        {EXAMPLE.mode === "pickup" ? "Collect it" : "Getting it to you"}
+      </h2>
+
+      <dl class="collect__facts">
+        <div class="collect__fact">
+          <dt>When</dt>
+          <dd>
+            <strong>{bakeDateLabel}</strong>, {EXAMPLE.window}. Baked that
+            morning, so it is at its best that day.
+          </dd>
+        </div>
+        <div class="collect__fact">
+          <dt>Where</dt>
+          <dd>
+            {
+              business.address ? (
+                <strong>{business.address}</strong>
+              ) : (
+                <>
+                  <strong>
+                    {business.city}, {business.state}
+                  </strong>
+                  <span class="collect__note">
+                    The street address is in the email that confirmed this
+                    order. It is a private home and it is not printed on the
+                    public site.
+                  </span>
+                </>
+              )
+            }
+          </dd>
+        </div>
+        <div class="collect__fact">
+          <dt>Bring</dt>
+          <dd>
+            This page or the reference. Nothing else. There is nothing to sign
+            and nothing to pay on the day.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="block" aria-labelledby="contents-title">
+      <h2 id="contents-title">What is in it</h2>
+      <ul class="lines">
+        {
+          EXAMPLE.lines.map((line) => (
+            <li class="line">
+              <span class="line__name">{line.name}</span>
+              <span class="line__size">{line.size}</span>
+              <span class="line__qty tabular" data-qty={String(line.qty)}>
+                {line.qty === 1 ? "1 tray" : `${line.qty} trays`}
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="lines__note">
+        Ordered {placedLabel}. The amount charged is on the Stripe receipt in
+        your email.
+      </p>
+    </section>
+  </div>
+
+  <SeedRule density="sparse" />
+
+  <div class="page band--tight">
+    <section class="block" aria-labelledby="kitchen-title">
+      <h2 id="kitchen-title">Made in a home kitchen</h2>
+      <div class="prose-col">
+        <p>
+          This was baked in Hakop's own kitchen at home, under a county
+          registration, not in a commercial bakery. It is said on the label, at
+          the foot of every page here, and again now, because it is the one
+          thing a cottage food operation has to be sure you have read.
+        </p>
+        <div class="kitchen__line">
+          <ComplianceLine variant="inline" />
+        </div>
+        <p class="kitchen__allergens">
+          The kitchen handles wheat, milk, egg, almonds, walnuts and sesame.
+          The full wording is in the{" "}
+          <a href="/legal/allergens">allergen statement</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="wrong-title">
+      <h2 id="wrong-title">If something is wrong</h2>
+      <div class="prose-col">
+        <p>
+          Write to <a href={`mailto:${business.email}`}>{business.email}</a>{" "}
+          with the reference and say what you need. A change to a bake day is
+          usually possible while the day is still open, and what applies to a
+          cancellation is set out in{" "}
+          <a href="/legal/refunds">refunds and cancellations</a>.
+        </p>
+        <p class="actions">
+          <Button href="/shop" variant="secondary">Back to the shop</Button>
+        </p>
+      </div>
+    </section>
+  </div>
+</Base>
+
+<style>
+  /* ---- The example notice ---- */
+
+  .example {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.85rem 1rem;
+    background-color: var(--color-sesame-deep);
+    border: 1px dashed var(--color-line-strong);
+    border-radius: var(--radius-sm);
+    max-width: 52rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .example__title {
+    color: var(--color-crust);
+  }
+
+  .example__body {
+    color: var(--color-crust-soft);
+    font-size: var(--text-sm);
+    max-width: 70ch;
+  }
+
+  /* ---- Heading and status ---- */
+
+  .head__title {
+    font-size: var(--text-3xl);
+  }
+
+  .head__status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--color-good);
+  }
+
+  .head__dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background-color: var(--color-good);
+    flex: 0 0 auto;
+  }
+
+  .head__detail {
+    margin-top: 0.5rem;
+    color: var(--color-crust-soft);
+    max-width: 62ch;
+  }
+
+  /* ---- Collection, the first thing that matters ---- */
+
+  .collect {
+    margin-top: 1.75rem;
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-top: 3px solid var(--color-eggwash);
+    border-radius: var(--radius-md);
+    padding: clamp(1rem, 3.5vw, 1.6rem);
+    max-width: 46rem;
+  }
+
+  .collect__title {
+    font-size: var(--text-xl);
+  }
+
+  .collect__facts {
+    margin: 1rem 0 0;
+    display: grid;
+  }
+
+  .collect__fact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding-block: 0.8rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .collect__fact dt {
+    font-weight: 600;
+  }
+
+  .collect__fact dd {
+    margin: 0;
+    color: var(--color-crust-soft);
+  }
+
+  .collect__fact dd strong {
+    color: var(--color-crust);
+  }
+
+  .collect__note {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: var(--text-sm);
+  }
+
+  /* ---- Contents ---- */
+
+  .block {
+    margin-top: 2.25rem;
+  }
+
+  .lines {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    max-width: 46rem;
+  }
+
+  .line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem 0.9rem;
+    padding-block: 0.75rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .line:last-child {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .line__name {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+  }
+
+  .line__size {
+    color: var(--color-crust-soft);
+  }
+
+  .line__qty {
+    margin-left: auto;
+    font-weight: 600;
+  }
+
+  .lines__note {
+    margin-top: 0.9rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    max-width: 62ch;
+  }
+
+  .kitchen__line {
+    margin-top: 1.15rem;
+  }
+
+  .kitchen__allergens {
+    margin-top: 1.15rem;
+    color: var(--color-crust-soft);
+  }
+
+  .actions {
+    margin-top: 1.25rem;
+  }
+
+  @media (min-width: 40rem) {
+    .collect__fact {
+      grid-template-columns: 7rem minmax(0, 1fr);
+      gap: 0.5rem 1.25rem;
+    }
+  }
+</style>

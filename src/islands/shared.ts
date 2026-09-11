@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { emptyCart, getCart, subscribe, type CartState } from "@lib/cart";
+import { formatMoney } from "@lib/money";
 
 /* ------------------------------------------------------------------ */
 /* Class names                                                         */
@@ -72,22 +73,31 @@ export function useCart(): CartState {
 }
 
 /* ------------------------------------------------------------------ */
-/* The order reference                                                 */
+/* The checkout attempt                                                */
 /* ------------------------------------------------------------------ */
 
-const ORDER_REF_KEY = "hb.checkout";
+const CHECKOUT_KEY = "hb.checkout";
 
 /** No I, L, O or U, so nothing read down a phone line is ambiguous. */
 const REF_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-interface StoredCheckout {
-  orderRef: string;
+/**
+ * What the browser keeps about the last checkout attempt.
+ *
+ * The order reference is the server's. It is derived there from what is
+ * actually being bought, and it arrives with the checkout response, so the
+ * value recorded here is the real one rather than a guess made in advance.
+ */
+export interface StoredCheckout {
+  /** Client side idempotency token. Sent as `requestId`. */
+  attemptId: string;
   disclosureVersion?: string;
   acceptedAt?: string;
+  orderRef?: string;
+  bakeDate?: string;
 }
 
-function randomRef(): string {
-  const size = 6;
+function randomToken(size: number): string {
   const out: string[] = [];
   const cryptoApi = typeof globalThis.crypto !== "undefined" ? globalThis.crypto : undefined;
   if (cryptoApi?.getRandomValues) {
@@ -100,15 +110,15 @@ function randomRef(): string {
       out.push(REF_ALPHABET[index] ?? "0");
     }
   }
-  return `HB-${out.join("")}`;
+  return out.join("");
 }
 
 export function readStoredCheckout(): StoredCheckout | null {
   try {
-    const raw = localStorage.getItem(ORDER_REF_KEY);
+    const raw = localStorage.getItem(CHECKOUT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredCheckout>;
-    return typeof parsed.orderRef === "string" ? (parsed as StoredCheckout) : null;
+    return typeof parsed.attemptId === "string" ? (parsed as StoredCheckout) : null;
   } catch {
     return null;
   }
@@ -116,32 +126,34 @@ export function readStoredCheckout(): StoredCheckout | null {
 
 export function writeStoredCheckout(value: StoredCheckout): void {
   try {
-    localStorage.setItem(ORDER_REF_KEY, JSON.stringify(value));
+    localStorage.setItem(CHECKOUT_KEY, JSON.stringify(value));
   } catch {
-    /* Private browsing or a full quota. The reference still holds for this
-       page view, and the server records its own copy either way. */
+    /* Private browsing or a full quota. The attempt still works for this
+       page view, and the server records its own copy of the consent. */
   }
 }
 
 /**
- * A stable reference for this attempt at checking out.
+ * A stable id for this attempt at checking out.
  *
  * It survives a reload and a failed payment, so a customer who comes back
- * and tries again is the same reference to Hakop rather than two.
+ * and tries again is the same attempt to the server: one capacity hold and
+ * one Stripe session rather than two. A genuinely new order gets a new one,
+ * which happens when the cart changes or after a successful checkout.
  */
-export function useOrderRef(): string {
-  const [ref, setRef] = useState<string>("");
+export function useAttemptId(): string {
+  const [attemptId, setAttemptId] = useState<string>("");
   useEffect(() => {
     const stored = readStoredCheckout();
     if (stored) {
-      setRef(stored.orderRef);
+      setAttemptId(stored.attemptId);
       return;
     }
-    const created = randomRef();
-    writeStoredCheckout({ orderRef: created });
-    setRef(created);
+    const created = `att-${randomToken(10)}`;
+    writeStoredCheckout({ attemptId: created });
+    setAttemptId(created);
   }, []);
-  return ref;
+  return attemptId;
 }
 
 /* ------------------------------------------------------------------ */
@@ -165,11 +177,6 @@ export function formatBakeDate(
   const parsed = new Date(`${date}T12:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return date;
   return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(parsed);
-}
-
-/** Short form for a tight row: "Sat, Sep 20". */
-export function formatBakeDateShort(date: string): string {
-  return formatBakeDate(date, { weekday: "short", month: "short", day: "numeric" });
 }
 
 /**
@@ -201,8 +208,34 @@ export function formatCutoff(isoInstant: string, timeZone: string): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* Money                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Format integer cents, and refuse rather than throw.
+ *
+ * `formatMoney` asserts, correctly, that money is a whole number of cents.
+ * An island is the wrong place for that assertion to be fatal: a single bad
+ * figure in a prop would take the cart down with it, and a customer cannot
+ * fix that. A missing price shows as nothing, which is visibly wrong to
+ * Hakop and harmless to everybody else.
+ */
+export function safeMoney(cents: number): string {
+  if (!Number.isSafeInteger(cents) || cents < 0) return "";
+  return formatMoney(cents);
+}
+
+/* ------------------------------------------------------------------ */
 /* Counting                                                            */
 /* ------------------------------------------------------------------ */
+
+/** What one line of the cart is counted in. Gata is sold by the tray. */
+export interface UnitWords {
+  readonly one: string;
+  readonly many: string;
+}
+
+export const TRAYS: UnitWords = { one: "tray", many: "trays" };
 
 /** "1 tray", "3 trays". Plural without a parenthesised s. */
 export function plural(count: number, one: string, many: string): string {

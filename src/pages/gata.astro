@@ -1,0 +1,453 @@
+---
+/**
+ * What gata is, for somebody who has never heard the word.
+ *
+ * This page exists because most of California has not eaten gata and cannot
+ * pronounce it, and a person who cannot say a word will not order it. It is
+ * also the page most likely to be found from a search, so it is written to be
+ * read by a person rather than assembled for a crawler.
+ *
+ * Two rules hold here as everywhere. Ingredient names are public and required
+ * by law, so they are printed in full. Amounts, ratios, timings and method are
+ * the recipe, and they never enter this repository. Anything else that cannot
+ * be known for certain is marked as unanswered rather than guessed at.
+ */
+import { Image } from "astro:assets";
+
+import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import SeedRule from "@components/SeedRule.astro";
+import wide from "@/assets/photos/gata-rows-wide.jpg";
+import square from "@/assets/photos/gata-box-square.jpg";
+import { business, storeOpen } from "@config/site";
+import { getProduct, listPublishedProducts } from "@lib/catalog-source";
+
+const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0] ?? null;
+---
+
+<Base
+  title="What gata is"
+  description="Gata (gah-TAH) is an Armenian pastry: rolled dough with a sweet nut filling, sliced into pieces, washed with egg and topped with sesame. How to say it, how to serve it, and how to keep it."
+>
+  <article class="band gata">
+    <div class="page gata__head">
+      <div class="prose-col">
+        <h1>What gata is</h1>
+        <p class="gata__lede">
+          Gata is an Armenian pastry: rolled dough with a sweet nut filling,
+          sliced into pieces, washed with egg and topped with sesame seeds. It
+          is eaten with coffee or tea, at any hour, and it is the only thing
+          this bakery makes.
+        </p>
+
+        <div class="say" aria-labelledby="say-title">
+          <p id="say-title" class="say__title">How to say it</p>
+          <p class="say__word">
+            <span class="say__soft">gah</span>-<span class="say__stress">TAH</span>
+          </p>
+          <p class="say__detail">
+            Two syllables, the second one stronger. Written{" "}
+            <span lang="hy" class="say__native">Գաթա</span> in Armenian. Some
+            households call the same pastry nazook, and some call it kata.
+          </p>
+        </div>
+      </div>
+
+      <figure class="gata__figure">
+        <Image
+          src={wide}
+          alt="Gata on the tray in close up, the cut faces showing nut filling turned inside the dough, sesame seeds caught in the gold egg wash."
+          width={860}
+          height={600}
+          widths={[430, 645, 860]}
+          sizes="(min-width: 56rem) 26rem, 90vw"
+          loading="eager"
+          decoding="async"
+        />
+        <figcaption>
+          The cut face is the thing to look at: filling turned inside the dough,
+          not sitting on top of it.
+        </figcaption>
+      </figure>
+    </div>
+
+    <SeedRule density="normal" />
+
+    <section class="page band--tight" aria-labelledby="what-title">
+      <div class="prose-col">
+        <h2 id="what-title">What it actually is</h2>
+        <p>
+          The filling is turned inside the dough rather than layered on top of
+          it: the dough goes around a sweet nut filling as a long log, and the
+          log is cut across into pieces. The tops are washed with egg and
+          scattered with sesame, and that egg wash is what makes them gold.
+        </p>
+        <p>
+          There is more than one kind of gata. Hakop's is this one, the rolled
+          and sliced kind. It is not the flat stamped round that some families
+          make, and the two are different enough that it is worth saying so
+          before anybody is disappointed.
+        </p>
+        <p>
+          The sesame goes on by hand, thrown rather than pressed into a pattern,
+          which is why no two pieces are marked the same way. It is sold by the
+          tray rather than by the piece.
+        </p>
+      </div>
+    </section>
+
+    {
+      product && (
+        <section class="page band--tight" aria-labelledby="inside-title">
+          <div class="prose-col">
+            <h2 id="inside-title">What is in it</h2>
+            <p>
+              These are the ingredient names, in the order they are printed on
+              the label, which the law fixes as heaviest first.
+            </p>
+          </div>
+
+          <ul class="ingredients prose-col">
+            {product.ingredients.map((name) => (
+              <li class="ingredients__item">
+                <span class="ingredients__seed" aria-hidden="true" />
+                {name}
+              </li>
+            ))}
+          </ul>
+
+          <div class="prose-col">
+            <p class="gata__note">
+              Names only. How much of each, in what order, at what heat and for
+              how long is the recipe, and the recipe is not published. That is
+              not coyness: the names are what the law requires and what an
+              allergic customer needs, and the rest is the family's.
+            </p>
+
+            <div class="allergens">
+              <p class="allergens__line">
+                <strong>Contains: {product.allergens.join(", ")}.</strong>
+              </p>
+              <p class="allergens__note">
+                One kitchen, one set of trays. Everything here is handled in a
+                kitchen that also handles all six, so there is no allergen free
+                option and this site will never offer one.{" "}
+                <a href="/legal/allergens">Read the full allergen statement</a>.
+              </p>
+            </div>
+          </div>
+        </section>
+      )
+    }
+
+    <section class="page band--tight" aria-labelledby="serve-title">
+      <div class="gata__split">
+        <div class="prose-col">
+          <h2 id="serve-title">How to serve it</h2>
+          <p>
+            {product?.servingSuggestion ??
+              "Serve at room temperature, with coffee or tea."}{" "}
+            That is the ordinary way, and it is the way most people eat it.
+          </p>
+          <p>
+            Some people warm a piece first and some do not. Both are ordinary
+            and neither is wrong. Hakop has not said one way is correct, so this
+            page will not either.
+          </p>
+          <p>
+            It is cut and eaten by hand. A tray put out whole, in the middle of
+            the table, is the point of buying a tray.
+          </p>
+        </div>
+
+        <figure class="gata__figure gata__figure--inset">
+          <Image
+            src={square}
+            alt="A packed tray of gata seen from straight above, pieces set side by side, sesame scattered across every gold top."
+            width={450}
+            height={450}
+            widths={[320, 450, 900]}
+            sizes="(min-width: 56rem) 20rem, 78vw"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>A tray packed the way it travels.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="page band--tight" aria-labelledby="keep-title">
+      <div class="prose-col">
+        <h2 id="keep-title">How to keep it</h2>
+        <p>{product?.storage ?? "Keep the tray sealed at room temperature and out of direct sun."}</p>
+
+        {
+          (!product || product.bestByDays === null) && (
+            <div class="todo">
+              <p class="todo__label">
+                <span class="todo__seed" aria-hidden="true" />
+                Not answered yet
+              </p>
+              <p class="todo__body">
+                How long a tray is good for, and whether it freezes well, are
+                not published here because they have not been tested and
+                written down. Hakop sets the best by window before the first
+                label is printed, and it will appear here and on the label at
+                the same time. A guess would be worse than a gap.
+              </p>
+            </div>
+          )
+        }
+      </div>
+    </section>
+
+    <SeedRule density="sparse" />
+
+    <section class="page band--tight" aria-labelledby="names-title">
+      <div class="prose-col">
+        <h2 id="names-title">Nazook, kata, gata</h2>
+        <p>
+          The same pastry answers to more than one name, and which one a person
+          uses usually says where their family is from rather than what is in
+          the tray. Nazook and kata both turn up. If you grew up with one of
+          those words, this is that.
+        </p>
+
+        <div class="todo">
+          <p class="todo__label">
+            <span class="todo__seed" aria-hidden="true" />
+            For the family to answer
+          </p>
+          <p class="todo__body">
+            Which name Hakop's household uses, and how they say it, is theirs to
+            tell. When they do, it goes here in their words rather than in a
+            summary of them.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <div class="page gata__foot">
+      <div class="prose-col">
+        <p>
+          Gata is baked in {business.city}, California, and sold inside
+          California only.{" "}
+          <a href="/story">Hakop is the person baking it</a>.
+        </p>
+        <p class="gata__actions">
+          {
+            storeOpen ? (
+              <Button href="/shop" variant="primary">
+                See the trays
+              </Button>
+            ) : (
+              <Button href="/#waitlist" variant="secondary">
+                Tell me when ordering opens
+              </Button>
+            )
+          }
+          <Button href={`mailto:${business.email}`} variant="quiet">
+            Ask a question
+          </Button>
+        </p>
+      </div>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .gata__head {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+    align-items: start;
+  }
+
+  .gata__lede {
+    margin-top: 1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+  }
+
+  @media (min-width: 56rem) {
+    .gata__head {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+    }
+  }
+
+  /* ---- Pronunciation ---- */
+
+  .say {
+    margin-top: 1.5rem;
+    padding: clamp(0.9rem, 3vw, 1.25rem);
+    background-color: var(--color-sesame-deep);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-line);
+  }
+
+  .say__title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-crust-soft);
+  }
+
+  .say__word {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    line-height: 1.15;
+    margin-top: 0.35rem;
+  }
+
+  .say__soft {
+    color: var(--color-crust-soft);
+  }
+
+  /* The stressed syllable, carried by weight and colour rather than by
+     setting the whole word in tracked out capitals. */
+  .say__stress {
+    color: var(--color-crust);
+    font-weight: 700;
+    border-bottom: 3px solid var(--color-eggwash);
+  }
+
+  .say__detail {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .say__native {
+    font-family: var(--font-display);
+    color: var(--color-eggwash-ink);
+    font-size: var(--text-base);
+  }
+
+  /* ---- Figures ---- */
+
+  .gata__figure {
+    margin: 0;
+  }
+
+  .gata__figure :global(img) {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+  }
+
+  .gata__figure figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    max-width: 40ch;
+  }
+
+  .gata__figure--inset {
+    max-width: 24rem;
+  }
+
+  .gata__split {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+    align-items: start;
+  }
+
+  @media (min-width: 56rem) {
+    .gata__split {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+    }
+  }
+
+  /* ---- Ingredients ---- */
+
+  .ingredients {
+    list-style: none;
+    margin: 1.1rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+    gap: 0.1rem 1.25rem;
+  }
+
+  .ingredients__item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    padding-block: 0.45rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .ingredients__seed {
+    flex: none;
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-24deg);
+  }
+
+  .gata__note {
+    margin-top: 1.35rem;
+    color: var(--color-crust-soft);
+  }
+
+  .allergens {
+    margin-top: 1.35rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--color-pomegranate);
+  }
+
+  .allergens__note {
+    margin-top: 0.4em;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  /* ---- Unanswered, marked as such ---- */
+
+  .todo {
+    margin-top: 1.35rem;
+    padding: clamp(0.9rem, 3vw, 1.35rem);
+    background-color: var(--color-paper);
+    border: 2px dashed var(--color-line-strong);
+    border-radius: var(--radius-md);
+  }
+
+  .todo__label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-pomegranate);
+  }
+
+  .todo__seed {
+    flex: none;
+    width: 8px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--color-pomegranate);
+    transform: rotate(-24deg);
+  }
+
+  .todo__body {
+    margin-top: 0.6rem;
+    color: var(--color-crust-soft);
+    max-width: 58ch;
+  }
+
+  /* ---- Foot ---- */
+
+  .gata__foot {
+    padding-top: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  .gata__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+</style>

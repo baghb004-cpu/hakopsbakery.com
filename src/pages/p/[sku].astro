@@ -1,0 +1,392 @@
+---
+/**
+ * The label QR landing page.
+ *
+ * Somebody is scanning this in a kitchen, holding a box, quite possibly
+ * because they are worried about an allergy. Everything about this page is
+ * subordinate to that: the allergen line is the first thing after the product
+ * name, the ingredient list is right under it, and nothing has to load before
+ * either of them can be read.
+ *
+ * RULES FOR THIS FILE, IN ORDER OF IMPORTANCE
+ *
+ *   1. ZERO JavaScript of our own. No islands, no inline script, not for
+ *      anything. The only script on this page is Astro's own link prefetch,
+ *      which is site wide configuration in astro.config.mjs.
+ *   2. No photographs. A photograph is the largest thing a page can carry and
+ *      it tells this reader nothing: the tray is in their hands.
+ *   3. Text first, in the order a worried person reads it.
+ *   4. The compliance values come from ComplianceLine, which is the only
+ *      component allowed to print the county, the registration number and the
+ *      home kitchen statement.
+ *
+ * EVERY SKU, INCLUDING RETIRED ONES. `listProducts()` rather than the
+ * published list: a label lives in the world for as long as the tray does,
+ * and a QR code that 404s on a product that was taken off the shop is the
+ * worst possible moment for this page to fail.
+ *
+ * THE ?b= BATCH PARAMETER
+ *
+ * The label may carry a batch code as `?b=`. This page deliberately ignores
+ * it, and there is no script here to read it.
+ *
+ * Reading it would mean either shipping JavaScript to the one page that must
+ * not have any, or rendering the page from a server, which would turn a file
+ * served from an edge into a round trip. Both cost the thing this page exists
+ * to protect. What is gained is small: the batch code is printed on the label
+ * the reader is already holding, and it identifies a bake for the kitchen's
+ * records rather than telling a customer anything.
+ *
+ * The parameter is therefore display only in the sense that it displays
+ * nowhere. It changes nothing about what this page says, which is the
+ * property that actually matters: two people scanning the same tray with
+ * different query strings must see exactly the same ingredients.
+ *
+ * If a batch ever needs to change what the page says (a recall, say), it must
+ * not be done with a query string. It would be a per batch URL baked into the
+ * label, which stays static and stays honest.
+ */
+import Base from "@layouts/Base.astro";
+import ComplianceLine from "@components/ComplianceLine.astro";
+import { business, compliance, complianceIsComplete, storeOpen } from "@config/site";
+import { listProducts } from "@lib/catalog-source";
+import { allergenSentence, isPurchasable, type Product } from "@lib/catalog";
+
+export async function getStaticPaths() {
+  const products = await listProducts();
+  return products.map((product) => ({
+    params: { sku: product.sku },
+    props: { product },
+  }));
+}
+
+interface Props {
+  product: Product;
+}
+
+const { product } = Astro.props;
+
+const contains = allergenSentence(product);
+const buyable = isPurchasable(product);
+const nutrition = product.nutrition;
+
+/* Net weight and piece count are label data. Shown only once somebody has
+   weighed and counted a real tray. Never estimated. */
+const measured = product.variants.filter(
+  (variant) => variant.netWeightGrams !== null || variant.piecesPerUnit !== null,
+);
+
+const nutritionRows = nutrition
+  ? [
+      { label: "Calories", value: `${nutrition.calories}` },
+      { label: "Total fat", value: `${nutrition.totalFatGrams} g` },
+      { label: "Saturated fat", value: `${nutrition.saturatedFatGrams} g` },
+      { label: "Trans fat", value: `${nutrition.transFatGrams} g` },
+      { label: "Cholesterol", value: `${nutrition.cholesterolMilligrams} mg` },
+      { label: "Sodium", value: `${nutrition.sodiumMilligrams} mg` },
+      { label: "Total carbohydrate", value: `${nutrition.totalCarbohydrateGrams} g` },
+      { label: "Dietary fiber", value: `${nutrition.dietaryFiberGrams} g` },
+      { label: "Total sugars", value: `${nutrition.totalSugarsGrams} g` },
+      { label: "Added sugars", value: `${nutrition.addedSugarsGrams} g` },
+      { label: "Protein", value: `${nutrition.proteinGrams} g` },
+    ]
+  : [];
+---
+
+<Base
+  title={product.name}
+  description={`What is in ${product.name}: the full ingredient list, the allergen statement, how to keep it, and the kitchen it was made in.`}
+>
+  <article class="label">
+    <div class="page label__inner">
+      <h1 class="label__name">
+        {product.name}
+        {product.nameHy && <span class="label__native" lang="hy">{product.nameHy}</span>}
+      </h1>
+
+      <p class="label__from">
+        Baked by {business.name} in {business.city}, California.
+      </p>
+
+      <!-- The reason this page exists. Nothing goes above it. -->
+      <section class="label__block" aria-labelledby="allergens-title">
+        <h2 id="allergens-title" class="label__h2">Allergens</h2>
+
+        <p class="contains">{contains}</p>
+
+        <p class="label__body">
+          Made in a home kitchen that also handles all of those, so cross
+          contact is possible. This is not an allergen free kitchen and there
+          is no allergen free tray.
+        </p>
+
+        <p class="label__body">
+          <a href="/legal/allergens">The full allergen statement</a>, including
+          what to do if your allergy is severe.
+        </p>
+      </section>
+
+      <section class="label__block" aria-labelledby="ingredients-title">
+        <h2 id="ingredients-title" class="label__h2">Ingredients</h2>
+
+        <p class="label__body">In label order, heaviest first.</p>
+
+        <ul class="ingredients">
+          {product.ingredients.map((name) => <li>{name}</li>)}
+        </ul>
+      </section>
+
+      {
+        nutrition ? (
+          <section class="label__block" aria-labelledby="nutrition-title">
+            <h2 id="nutrition-title" class="label__h2">Nutrition</h2>
+            <p class="label__body">
+              Per serving. Serving size{" "}
+              <span class="tabular">{nutrition.servingSizeGrams} g</span>,{" "}
+              <span class="tabular">{nutrition.servingsPerContainer}</span>{" "}
+              servings per tray. Analysed{" "}
+              <time datetime={nutrition.analysedOn} class="tabular">
+                {nutrition.analysedOn}
+              </time>
+              .
+            </p>
+            <dl class="nutrition">
+              {nutritionRows.map((row) => (
+                <div class="nutrition__row">
+                  <dt>{row.label}</dt>
+                  <dd class="tabular">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : (
+          <section class="label__block" aria-labelledby="nutrition-title">
+            <h2 id="nutrition-title" class="label__h2">Nutrition</h2>
+            <p class="label__body">
+              No nutrition panel. Figures are voluntary for a kitchen this
+              size, real ones come from a laboratory, and estimated ones are
+              not published here.
+            </p>
+          </section>
+        )
+      }
+
+      <section class="label__block" aria-labelledby="keeping-title">
+        <h2 id="keeping-title" class="label__h2">Keeping it</h2>
+
+        <p class="label__body">{product.storage}</p>
+
+        {
+          product.bestByDays !== null ? (
+            <p class="label__body">
+              Best within <span class="tabular">{product.bestByDays}</span>{" "}
+              days of the bake date printed on the label.
+            </p>
+          ) : (
+            <p class="label__body">
+              A best by window is not published yet. The date printed on your
+              label is the one to go by.
+            </p>
+          )
+        }
+
+        {
+          measured.length > 0 && (
+            <ul class="measures">
+              {measured.map((variant) => (
+                <li>
+                  <strong>{variant.label}.</strong>{" "}
+                  {variant.piecesPerUnit !== null && (
+                    <span>
+                      <span class="tabular">{variant.piecesPerUnit}</span> pieces.{" "}
+                    </span>
+                  )}
+                  {variant.netWeightGrams !== null && (
+                    <span>
+                      Net weight <span class="tabular">{variant.netWeightGrams} g</span>.
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+
+      <section class="label__block" aria-labelledby="kitchen-title">
+        <h2 id="kitchen-title" class="label__h2">The kitchen</h2>
+        <ComplianceLine variant="inline" />
+      </section>
+
+      <section class="label__block" aria-labelledby="again-title">
+        <h2 id="again-title" class="label__h2">Another tray</h2>
+
+        {
+          /*
+            Three states, and the reason has to be the true one. "Not open
+            yet" while the county has already issued a number would be a lie
+            that a customer could check against the foot of this page.
+          */
+        }
+        {
+          buyable ? (
+            <p class="label__body">
+              <a class="label__action" href={`/shop/${product.slug}`}>
+                Order another tray
+              </a>
+            </p>
+          ) : !storeOpen ? (
+            <p class="label__body">
+              Ordering is not open yet.{" "}
+              {!complianceIsComplete && (
+                <span>
+                  {compliance.county} has not issued the registration number,
+                  and nothing can be sold until it does.{" "}
+                </span>
+              )}
+              <a href="/#waitlist">Leave an email</a> and you will hear on the
+              day it changes.
+            </p>
+          ) : (
+            <p class="label__body">
+              This tray is not on sale at the moment.{" "}
+              <a href="/shop">See what is</a>, or write and ask.
+            </p>
+          )
+        }
+
+        <p class="label__body">
+          Questions go to{" "}
+          <a href={`mailto:${business.email}`}>{business.email}</a>, which{" "}
+          {business.owner} reads himself.
+        </p>
+      </section>
+
+      <p class="label__sku">
+        Product code <span class="tabular">{product.sku}</span>. This page is
+        generated from the same record the label is printed from. If they ever
+        disagree, the label on the tray in your hand is the one that counts.
+      </p>
+    </div>
+  </article>
+</Base>
+
+<style>
+  /*
+    Deliberately small. This page has no grid, no photography and no component
+    that is not already on every other page, so the only cost it adds to the
+    one shared stylesheet is this block.
+  */
+  .label__inner {
+    padding-block: clamp(1.25rem, 4vw, 2rem) clamp(2rem, 5vw, 3rem);
+    /* The measure that keeps a line under 80 characters, applied here rather
+       than with a wrapper element, because every element saved is bytes. */
+    max-width: var(--container-prose);
+  }
+
+  .label__name {
+    font-size: var(--text-3xl);
+  }
+
+  .label__native {
+    display: inline-block;
+    margin-left: 0.5rem;
+    font-size: var(--text-lg);
+    color: var(--color-eggwash-ink);
+  }
+
+  .label__from {
+    margin-top: 0.5rem;
+    color: var(--color-crust-soft);
+    font-size: var(--text-sm);
+  }
+
+  .label__block {
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* The allergen block is first and it is the one that carries a mark. */
+  .label__block:first-of-type {
+    border-top: 0;
+  }
+
+  .label__h2 {
+    font-size: var(--text-lg);
+    font-family: var(--font-body);
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--color-crust-soft);
+  }
+
+  .label__body {
+    margin-top: 0.7rem;
+  }
+
+  .contains {
+    margin-top: 0.6rem;
+    padding: 0.85rem 1rem;
+    background-color: var(--color-paper);
+    border: 2px solid var(--color-pomegranate);
+    border-radius: var(--radius-md);
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    line-height: var(--leading-snug);
+    font-weight: 600;
+  }
+
+  .ingredients {
+    margin: 0.7rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ingredients li {
+    padding-block: 0.4rem;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .nutrition {
+    margin: 0.8rem 0 0;
+  }
+
+  .nutrition__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 0.4rem;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .nutrition dt {
+    color: var(--color-crust-soft);
+  }
+
+  .nutrition dd {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .measures {
+    margin: 0.8rem 0 0;
+    padding-left: 1.2rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .label__action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-weight: 700;
+  }
+
+  .label__sku {
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-line);
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+</style>

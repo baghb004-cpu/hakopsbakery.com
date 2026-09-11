@@ -1,0 +1,132 @@
+---
+/**
+ * The order bar that follows you down a product page on a phone.
+ *
+ * WHY IT IS A LINK AND NOT A SECOND ADD TO CART CONTROL
+ *
+ * The obvious build is to mount `AddToCart` twice, once in the page and once
+ * pinned to the bottom. That gives a phone two radio groups with the same
+ * labels, two quantity steppers that disagree the moment one is touched, and
+ * a second React root to pay for. So the bar carries the name, the price and
+ * one action, and the action moves focus to the real control further up the
+ * page. One control, always reachable.
+ *
+ * WHY IT IS STICKY AND NOT FIXED
+ *
+ * `position: fixed` takes the bar out of flow, which means the foot of the
+ * page ends up underneath it and the last paragraph on every product page has
+ * to carry padding that exists for a bar it knows nothing about. Sticky keeps
+ * it in flow: it floats at the bottom edge while there is page left, and then
+ * settles into its own place at the end. Nothing is ever covered permanently.
+ *
+ * It sits inside `<main>`, which is what gives it a tall enough containing
+ * block to stick within. Put it anywhere shallower and it will not move.
+ *
+ * Phones only. Above 48rem the order control is already on screen beside the
+ * photograph, and a bar repeating it would be furniture.
+ */
+import Button from "@components/Button.astro";
+
+interface Props {
+  /** What is being ordered. The bar has to make sense on its own. */
+  name: string;
+  /** Formatted price or range. Null whenever there is nothing to sell. */
+  price?: string | null;
+  /** Where the action goes. Normally an anchor further up the same page. */
+  href: string;
+  /** What the action says. Never carries an arrow glyph. */
+  label: string;
+  /** The line under the name when there is no price to show. */
+  note?: string | null;
+  class?: string;
+}
+
+const { name, price = null, href, label, note = null, class: className = "" } = Astro.props;
+---
+
+<div class={`order-bar ${className}`.trim()} data-order-bar>
+  <div class="page order-bar__inner">
+    <p class="order-bar__text">
+      <span class="order-bar__name">{name}</span>
+      {price && <span class="order-bar__price tabular">{price}</span>}
+      {!price && note && <span class="order-bar__note">{note}</span>}
+    </p>
+
+    <Button href={href} variant="primary">{label}</Button>
+  </div>
+</div>
+
+<style>
+  .order-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background-color: var(--color-paper);
+    border-top: 1px solid var(--color-line-strong);
+    /* Warm and tight, not a grey haze. The token set defines all three. */
+    box-shadow: var(--lift-3);
+    padding-block: 0.6rem;
+    /*
+      The home indicator on a notched phone sits over anything pinned to the
+      bottom edge. Base.astro sets viewport-fit=cover, which is what makes
+      this resolve to a real number rather than zero.
+    */
+    padding-bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .order-bar__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* Eight pixels is the floor between tap targets. This is more. */
+    gap: 0.75rem 1rem;
+  }
+
+  .order-bar__text {
+    margin: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: var(--leading-snug);
+  }
+
+  .order-bar__name {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--color-crust);
+    /* A long product name truncates rather than pushing the action off. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .order-bar__price {
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .order-bar__note {
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The child component's root, reached deliberately. A class passed to a
+     component is not covered by this component's scoped styles. */
+  .order-bar__inner :global(.btn) {
+    flex: 0 0 auto;
+  }
+
+  /*
+    Above this width the order control is already on screen next to the
+    photograph. A bar that repeats it is furniture, so it goes away.
+  */
+  @media (min-width: 48rem) {
+    .order-bar {
+      display: none;
+    }
+  }
+</style>

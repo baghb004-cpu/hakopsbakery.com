@@ -1,0 +1,181 @@
+---
+/**
+ * Refunds and cancellations.
+ *
+ * DRAFT. This is the policy as the brief describes it, written out in full so
+ * that Hakop can read a real page and either agree with it or change it. It
+ * is brief open decision 7 and it is marked as a draft on the page itself,
+ * because a customer should not have to guess which parts are settled.
+ *
+ * The cutoff time and the days before a bake date are read from
+ * `commerce.cutoff` so this page cannot disagree with the picker.
+ */
+import LegalLayout from "@components/LegalLayout.astro";
+import { business, commerce, storeOpen } from "@config/site";
+
+/* 20 becomes "8pm". Written once here, the same way the product page does it. */
+const rawHour = commerce.cutoff.hour;
+const cutoffHour = rawHour % 12 === 0 ? 12 : rawHour % 12;
+const cutoffLabel = `${cutoffHour}${rawHour < 12 ? "am" : "pm"}`;
+/* A number, not the config literal, so the plural survives a change. */
+const daysBefore: number = commerce.cutoff.daysBefore;
+const dayWord = daysBefore === 1 ? "day" : "days";
+
+const TOC = [
+  { id: "cancel", label: "Cancelling before the cutoff" },
+  { id: "after-cutoff", label: "After the cutoff" },
+  { id: "quality", label: "If something is wrong with the tray" },
+  { id: "no-show", label: "Pickups nobody collects" },
+  { id: "delivery", label: "Delivery and shipping" },
+  { id: "how", label: "How to ask" },
+  { id: "undecided", label: "What is not decided yet" },
+];
+---
+
+<LegalLayout
+  title="Refunds and cancellations"
+  description="Gata is perishable and made to order. Cancel free until the cutoff for your bake date, and anything wrong with the tray is made right within 48 hours with a photograph."
+  updated="2026-09-11"
+  lede="Gata is perishable and it is made for your order, not taken off a shelf. That shapes everything below."
+  status="draft"
+  toc={TOC}
+>
+  <p slot="draft-note">
+    {business.owner} has not signed this off yet. It is written out in full so
+    that he can read a real page rather than a summary, and change whatever he
+    disagrees with. Until he does, nobody will be held to it: if something goes
+    wrong with an order, write to him and it gets sorted out.
+  </p>
+
+  <h2 id="cancel">Cancelling before the cutoff</h2>
+
+  <p>
+    Orders for a bake date close at <span class="tabular">{cutoffLabel}</span>,{" "}
+    <span class="tabular">{daysBefore}</span> {dayWord} before that date. Up to
+    that moment you can cancel for any reason, or no reason, and you get the
+    full amount back. You do not have to explain.
+  </p>
+
+  <p>
+    Changing an order (a different tray size, a different date) before the
+    cutoff is the same thing: it is allowed, and it costs nothing.
+  </p>
+
+  <h2 id="after-cutoff">After the cutoff</h2>
+
+  <p>
+    Once the cutoff passes there is no refund for a change of mind. The
+    ingredients for your tray have been bought and the batch is scheduled
+    around it. Baking it and throwing it away costs the same as baking it and
+    handing it over.
+  </p>
+
+  <p>
+    That is the whole reason for the rule. It is not a penalty, and it is why
+    the cutoff sits {daysBefore} {dayWord} out rather than the night before.
+  </p>
+
+  <h2 id="quality">If something is wrong with the tray</h2>
+
+  <div class="pullout">
+    <p>
+      <strong>Anything wrong with the food itself is made right.</strong> Send
+      a photograph within 48 hours of collecting or receiving the tray and you
+      get a replacement on the next bake date or your money back, whichever you
+      prefer. There is no argument about it.
+    </p>
+  </div>
+
+  <p>
+    The photograph is not a test. It is how {business.owner} finds out what
+    went wrong, so he can tell whether it was the bake, the packing or the
+    trip, and it is the only way to fix a problem he cannot see.
+  </p>
+
+  <p>
+    The 48 hours are there because this is perishable food. Past that, nobody
+    can tell whether a tray left out on a warm counter for a week was a
+    problem in the kitchen.
+  </p>
+
+  <h2 id="no-show">Pickups nobody collects</h2>
+
+  <p>
+    A pickup order is held for 24 hours after the agreed time. After that it is
+    not kept any longer and the order is not refunded. It is fresh food sitting
+    in somebody's house, and holding it for longer would not do you any good
+    either.
+  </p>
+
+  <p>
+    If you are running late or something has happened, say so. A message before
+    the pickup time is always easier to deal with than silence afterwards.
+  </p>
+
+  <h2 id="delivery">Delivery and shipping</h2>
+
+  <p>
+    For local delivery, somebody needs to be able to take the tray at the
+    address you gave. If nobody is there, {business.owner} will contact you to
+    sort out what happens next.
+  </p>
+
+  <p>
+    For shipping inside California, a tray that arrives damaged is a quality
+    problem and is handled the way the section above describes: a photograph
+    within 48 hours of it arriving, and then a replacement or a refund. How
+    long a parcel takes is the carrier's business, not ours, and a slow
+    delivery is not by itself a refund.
+  </p>
+
+  <h2 id="how">How to ask</h2>
+
+  <p>
+    Write to{" "}
+    <a href={`mailto:${business.email}?subject=Order%20question`}>{business.email}</a>{" "}
+    with your order reference in the subject line, and say what you want to
+    happen. There is no form to fill in and no ticket number. It is one person
+    reading it.
+  </p>
+
+  <p>
+    Refunds go back to the card that paid, through Stripe. That usually takes a
+    few days to appear on a statement, and that part is the bank's timing
+    rather than ours.
+  </p>
+
+  {
+    !storeOpen && (
+      <p class="unsettled">
+        <span class="unsettled-title">Nothing can be ordered yet.</span> The
+        store is not open, so nothing above applies to anybody today. It is
+        published now so that it is readable before the first order rather than
+        after it.
+      </p>
+    )
+  }
+
+  <h2 id="undecided">What is not decided yet</h2>
+
+  <p>
+    Two things in this policy are genuinely open, and guessing at them here
+    would be worse than saying so.
+  </p>
+
+  <ul>
+    <li>
+      Whether a missed local delivery is re-attempted, and whether that costs
+      anything.
+    </li>
+    <li>
+      Whether an order can be moved to a later bake date after the cutoff has
+      passed, which is a kinder answer than a refusal but only if the kitchen
+      can absorb it.
+    </li>
+  </ul>
+
+  <p>
+    Until {business.owner} decides, both are handled by asking him. He would
+    rather answer an email than have a page make a promise he cannot keep.
+  </p>
+</LegalLayout>

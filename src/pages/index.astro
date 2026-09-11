@@ -1,6 +1,374 @@
 ---
+/**
+ * The home page.
+ *
+ * The order of the sections is Section 7 of the brief and it is not a matter
+ * of taste: photograph, then what you can order and when, then the product,
+ * then the reason to trust a home kitchen, then the story. Nothing sits above
+ * the product and the way to buy it.
+ *
+ * It renders correctly in both states. With the store closed there is no cart,
+ * no price presented as purchasable, and the waiting list stands where the
+ * order form will go. With it open the same page grows a price and a button.
+ * There is one page here, not two, because two would drift.
+ */
+import { Image } from "astro:assets";
+
 import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import Hero from "@components/Hero.astro";
+import ProductCard from "@components/ProductCard.astro";
+import SeedRule from "@components/SeedRule.astro";
+import TrustBlock from "@components/TrustBlock.astro";
+import EmailCapture from "@islands/EmailCapture";
+
+import storyPhoto from "@/assets/photos/gata-tray-full.jpg";
+import { business, commerce, compliance, site, storeOpen } from "@config/site";
+import { listPublishedProducts } from "@lib/catalog-source";
+import { isPurchasable } from "@lib/catalog";
+
+const products = await listPublishedProducts();
+const lead = products[0] ?? null;
+const single = products.length === 1;
+const anythingBuyable = products.some((product) => isPurchasable(product));
+
+/* The order cutoff, stated the way a person says it. */
+const rawHour = commerce.cutoff.hour;
+const cutoffHour = rawHour % 12 === 0 ? 12 : rawHour % 12;
+const cutoffLabel = `${cutoffHour}${rawHour < 12 ? "am" : "pm"}`;
+
+const heroStatus = anythingBuyable
+  ? "Taking orders now"
+  : "Not taking orders yet";
+
+/*
+  One lede, true in both states. The status line above the heading carries
+  whether the shop is open, so the lede does not have to hedge about it.
+*/
+const heroLede =
+  "Rolled dough with a sweet nut filling, sliced into pieces, washed gold " +
+  "and scattered by hand with sesame. Baked in Cypress, sold by the tray.";
 ---
-<Base title="Armenian gata, baked by hand in Cypress" primary>
-  <div class="page band"><h1>Placeholder</h1></div>
+
+<Base title={site.title} primary>
+  <!-- 1. The photograph, and the way to act on it. -->
+  <Hero title="Armenian gata, baked by hand in Cypress" lede={heroLede} status={heroStatus}>
+    {
+      anythingBuyable ? (
+        <Button href="/shop" variant="primary" size="lg">
+          Order a tray
+        </Button>
+      ) : (
+        <Button href="#waitlist" variant="primary" size="lg">
+          Tell me when it opens
+        </Button>
+      )
+    }
+    <Button href="/gata" variant="secondary" size="lg">
+      What gata is
+    </Button>
+  </Hero>
+
+  <!-- 2. What is open, and when. Honest in both states. -->
+  <section class="band band--tight" id="ordering" aria-labelledby="ordering-title">
+    <div class="page ordering">
+      <div class="ordering__copy prose-col">
+        <h2 id="ordering-title">
+          {anythingBuyable ? "Ordering, and how long it takes" : "Not open for orders yet"}
+        </h2>
+
+        {
+          anythingBuyable ? (
+            <>
+              <p>
+                Pick a bake date when you order. Dates that are full show as full
+                in the picker, before you pay, never after.
+              </p>
+              <ul class="ordering__facts">
+                <li>
+                  Orders close at <span class="tabular">{cutoffLabel}</span>,{" "}
+                  <span class="tabular">{commerce.cutoff.daysBefore}</span> days
+                  before the bake date.
+                </li>
+                {lead && (
+                  <li>
+                    Allow <span class="tabular">{lead.leadTimeDays}</span> days
+                    between ordering and collecting.
+                  </li>
+                )}
+                <li>Tuesday is never a bake day. Hakop is in class.</li>
+                <li>
+                  Pickup in {business.city}, local delivery, and shipping inside
+                  California.
+                </li>
+              </ul>
+              <p class="ordering__action">
+                <Button href="/shop" variant="primary">
+                  See the trays
+                </Button>
+              </p>
+            </>
+          ) : (
+            <>
+              {
+                storeOpen ? (
+                  <p>
+                    The kitchen is registered. The tray prices are not confirmed
+                    yet, so there is nothing on this page that can be bought
+                    today, and no figure here is a final price.
+                  </p>
+                ) : (
+                  <p>
+                    The registration application is with {compliance.county}{" "}
+                    Environmental Health. Until the number is issued there is
+                    nothing to buy here, and no figure on this site is a final
+                    price.
+                  </p>
+                )
+              }
+              <p>What is already settled:</p>
+              <ul class="ordering__facts">
+                <li>
+                  Pickup in {business.city}, local delivery, and shipping inside
+                  California. Cottage food law allows no further than that.
+                </li>
+                <li>Tuesday is never a bake day. Hakop is in class.</li>
+                <li>
+                  Orders will close at <span class="tabular">{cutoffLabel}</span>,{" "}
+                  <span class="tabular">{commerce.cutoff.daysBefore}</span> days
+                  before a bake date, so there is time to buy what a tray needs.
+                </li>
+              </ul>
+              <p>
+                One email, once, on the day it opens. Nothing else is sent to
+                that address.
+              </p>
+            </>
+          )
+        }
+      </div>
+
+      {
+        !anythingBuyable && (
+          <div class="ordering__form">
+            <EmailCapture
+              client:visible
+              source="home"
+              id="waitlist"
+              headingLevel={3}
+              title="Be told when ordering opens"
+              lede="Leave an email and you will hear on the day the county number arrives and the trays go on sale."
+              contactEmail={business.email}
+              privacyHref="/legal/privacy"
+            />
+          </div>
+        )
+      }
+    </div>
+  </section>
+
+  <SeedRule density="normal" />
+
+  <!-- 3. The product itself. -->
+  <section class="band" id="what-he-bakes" aria-labelledby="bakes-title">
+    <div class="page">
+      <h2 id="bakes-title">What Hakop bakes</h2>
+
+      <div class:list={["shelf", single && "shelf--single"]}>
+        <div class="shelf__cards">
+          {
+            products.map((product) => (
+              <ProductCard product={product} headingLevel={3} waitlistHref="#waitlist" />
+            ))
+          }
+        </div>
+
+        {
+          single && lead && (
+            <aside class="shelf__note" aria-label="About the tray">
+              <p>
+                One thing, made properly, is the whole catalog for now. It comes
+                in {lead.variants.length === 2 ? "two sizes" : `${lead.variants.length} sizes`}:{" "}
+                {lead.variants.map((variant) => variant.label.toLowerCase()).join(" and ")}.
+              </p>
+              {lead.variants.every((variant) => variant.piecesPerUnit === null) && (
+                <p>
+                  The piece count is not published yet. Hakop counts a real tray
+                  before that number goes on the site, because a number on a
+                  website is a promise to whoever is dividing it up at home.
+                </p>
+              )}
+              <p>
+                <a href="/gata">What gata is, and how to say it</a>
+              </p>
+            </aside>
+          )
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Why a stranger should trust a home kitchen. -->
+  <div class="band band--tight">
+    <div class="page">
+      {lead ? <TrustBlock product={lead} id="trust" /> : <TrustBlock id="trust" />}
+    </div>
+  </div>
+
+  <!-- 5. The story, and an honest note about the part nobody has written. -->
+  <section class="band" aria-labelledby="story-title">
+    <div class="page story">
+      <div class="story__media">
+        <Image
+          src={storyPhoto}
+          alt="A whole sheet pan of gata, every piece washed to a deep gold and scattered with sesame seeds."
+          width={530}
+          height={590}
+          widths={[360, 530, 1060]}
+          sizes="(min-width: 52rem) 24rem, 88vw"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+
+      <div class="story__copy prose-col">
+        <h2 id="story-title">The person baking this</h2>
+        <p>
+          {business.owner} bakes in {business.city}, in {compliance.county}. He is
+          studying Culinary Arts Management at Cypress College and works the
+          salad and sandwich line at Panera Bread. Tuesdays he is in class from
+          the morning until mid afternoon, which is why Tuesday is never a bake
+          day.
+        </p>
+        <p>
+          Where the recipe comes from, and whose it is, belongs to his family to
+          say. Those paragraphs are theirs to write and they are not written
+          yet. Nothing has been made up to fill the space in the meantime.
+        </p>
+        <p class="story__action">
+          <Button href="/story" variant="secondary">
+            Read the story so far
+          </Button>
+        </p>
+      </div>
+    </div>
+  </section>
 </Base>
+
+<style>
+  /* ---- 2. Ordering ---- */
+
+  .ordering {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+    align-items: start;
+  }
+
+  .ordering__facts {
+    list-style: none;
+    margin: 1.15em 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .ordering__facts li {
+    position: relative;
+    padding-left: 1.35rem;
+    color: var(--color-crust-soft);
+  }
+
+  /* A single sesame seed for a bullet, at the angle they land on the pan. */
+  .ordering__facts li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.62em;
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-24deg);
+  }
+
+  .ordering__action {
+    margin-top: 1.35rem;
+  }
+
+  @media (min-width: 54rem) {
+    .ordering {
+      grid-template-columns: minmax(0, 1fr) minmax(21rem, 0.85fr);
+    }
+  }
+
+  /* ---- 3. The shelf ---- */
+
+  .shelf {
+    display: grid;
+    gap: clamp(1.25rem, 3.5vw, 2.25rem);
+    margin-top: clamp(1.25rem, 3vw, 1.75rem);
+  }
+
+  .shelf__cards {
+    display: grid;
+    gap: clamp(1.25rem, 3vw, 1.75rem);
+    /* Works for one card or for twelve, with no second layout to maintain. */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18.5rem), 1fr));
+    align-items: start;
+  }
+
+  .shelf__note {
+    color: var(--color-crust-soft);
+    font-size: var(--text-sm);
+    max-width: 42ch;
+    border-top: 1px solid var(--color-line);
+    padding-top: 1rem;
+  }
+
+  .shelf__note p + p {
+    margin-top: 0.9em;
+  }
+
+  @media (min-width: 52rem) {
+    .shelf--single {
+      grid-template-columns: minmax(0, 23rem) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .shelf--single .shelf__cards {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .shelf__note {
+      border-top: 0;
+      border-inline-start: 1px solid var(--color-line);
+      padding-top: 0.35rem;
+      padding-inline-start: clamp(1.25rem, 3vw, 2rem);
+    }
+  }
+
+  /* ---- 5. Story teaser ---- */
+
+  .story {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+    align-items: center;
+  }
+
+  .story__media :global(img) {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+  }
+
+  .story__action {
+    margin-top: 1.35rem;
+  }
+
+  @media (min-width: 52rem) {
+    .story {
+      grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+    }
+  }
+</style>

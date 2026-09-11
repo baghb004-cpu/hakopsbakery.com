@@ -1,0 +1,472 @@
+---
+/**
+ * Hakop, and the kitchen this comes out of.
+ *
+ * READ THIS BEFORE EDITING.
+ *
+ * Everything on this page that is a fact about a person comes from Section A
+ * of docs/BRIEF.md, which is the whole list of what is known to be true. The
+ * personal narrative is deliberately missing. There is no grandmother here, no
+ * village, no kitchen table in 1974, because nobody has told us about one, and
+ * a story invented for a real family business is a lie printed on a real
+ * business's website.
+ *
+ * The gap is marked, on the page, in a block that cannot be mistaken for copy.
+ * In development that block also carries the exact prompts Hakop has to answer.
+ * Fill it with his words, delete the block, and the page is finished. Do not
+ * fill it with anything else.
+ */
+import { Image } from "astro:assets";
+
+import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import SeedRule from "@components/SeedRule.astro";
+import portrait from "@/assets/photos/gata-rows-tall.jpg";
+import { business, compliance, complianceIsComplete, storeOpen } from "@config/site";
+
+/* Editorial notes ship in development only. The placeholder itself is always
+   visible, because a gap a visitor can see is honest and a gap only the
+   developer can see gets forgotten. */
+const showNotes = import.meta.env.DEV;
+
+const coursework = [
+  "Baking I",
+  "Sanitation and Safety",
+  "Culinary Fundamentals",
+  "Garde Manger",
+];
+
+const history = [
+  {
+    when: "October 2023 to now",
+    what: "Panera Bread",
+    detail:
+      "On the salad and sandwich line, across three cafes: Cypress, Anaheim " +
+      "and Cerritos.",
+  },
+  {
+    when: "2021 to 2023",
+    what: "Anaheim Union High School District",
+    detail:
+      "Substitute food service assistant. HACCP protocols, FIFO date rotation.",
+  },
+];
+---
+
+<Base
+  title="Hakop's story"
+  description="Hakop Baghdasarian bakes Armenian gata in Cypress, California. His training, his week, and the part of the story his family is writing themselves."
+>
+  <article class="band story">
+    <div class="page story__head">
+      <div class="prose-col">
+        <h1>Hakop</h1>
+        <p class="story__lede">
+          {business.owner} bakes gata in {business.city}, California. He is
+          studying Culinary Arts Management at Cypress College, with the
+          Hospitality Capstone in progress for Fall 2026, and he has worked in
+          food service for six years.
+        </p>
+        <p class="story__lede-2">
+          He is ServSafe Food Handler certified and ServSafe Allergens
+          certified. The kitchen is a Class {compliance.operationClass}
+          {" "}cottage food operation in {compliance.county}
+          {complianceIsComplete
+            ? ", registered with the county."
+            : ". The registration has been applied for and the county has not issued it yet."}
+        </p>
+      </div>
+
+      <figure class="story__figure">
+        <Image
+          src={portrait}
+          alt="Rows of gata standing against each other on the tray, tops washed gold and speckled with sesame seeds."
+          width={700}
+          height={950}
+          widths={[350, 525, 700]}
+          sizes="(min-width: 56rem) 20rem, 78vw"
+          loading="eager"
+          decoding="async"
+        />
+        <figcaption>
+          A tray out of Hakop's kitchen. Photographed on a phone, in the
+          kitchen, which is where the tray was.
+        </figcaption>
+      </figure>
+    </div>
+
+    <SeedRule density="normal" />
+
+    <!-- The gap. Marked, not filled. -->
+    <section class="page band--tight" aria-labelledby="own-words-title">
+      <div class="prose-col">
+        <h2 id="own-words-title">In his own words</h2>
+
+        <div class="todo" data-placeholder="hakop-story">
+          <p class="todo__label">
+            <span class="todo__seed" aria-hidden="true"></span>
+            To be written by Hakop
+          </p>
+          <p class="todo__body">
+            This is where Hakop writes about himself and about this bakery, in
+            his own words. It has not been written yet, and nothing has been
+            invented to stand in for it. When his paragraphs arrive they go here
+            as he wrote them.
+          </p>
+          <div class="todo__rules" aria-hidden="true"></div>
+
+          {
+            showNotes && (
+              <div class="todo__notes">
+                <p class="todo__notes-title">
+                  Development note. What to ask for, from docs/BRIEF.md.
+                </p>
+                <ol>
+                  <li>His story, in his own words. Two or three paragraphs.</li>
+                  <li>
+                    Where the recipe comes from, in his family's words, not
+                    anyone else's.
+                  </li>
+                  <li>
+                    How the family wants that credited. A name, a household, a
+                    place, or nothing at all. Their call, and it is written down
+                    exactly as they give it.
+                  </li>
+                  <li>
+                    A photograph of Hakop, if he wants one on the page. There is
+                    none in the repository.
+                  </li>
+                </ol>
+                <p class="todo__notes-foot">
+                  Visible in development only. Replace the block above with the
+                  real copy and delete it.
+                </p>
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </section>
+
+    <section class="page band--tight" aria-labelledby="training-title">
+      <div class="prose-col">
+        <h2 id="training-title">Training</h2>
+        <p>
+          Two ServSafe certificates: Food Handler, and Allergens. The second one
+          is a separate course and it is the one that matters most here, because
+          this kitchen handles wheat, milk, egg, almonds, walnuts and sesame,
+          and a customer with an allergy is entitled to a straight answer about
+          that.
+        </p>
+        <p>Coursework at Cypress College so far:</p>
+      </div>
+
+      <ul class="course prose-col">
+        {
+          coursework.map((item) => (
+            <li class="course__item">
+              <span class="course__seed" aria-hidden="true" />
+              {item}
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="page band--tight" aria-labelledby="week-title">
+      <div class="prose-col">
+        <h2 id="week-title">The week</h2>
+        <p>
+          Class is on Tuesday, 8am to 3pm. That is the one fixed thing in the
+          week, so Tuesday is never a bake day and the ordering calendar will
+          never offer one. The rest of the week is shifts and baking.
+        </p>
+      </div>
+
+      <dl class="history prose-col">
+        {
+          history.map((row) => (
+            <div class="history__row">
+              <dt>
+                <span class="history__what">{row.what}</span>
+                <span class="history__when tabular">{row.when}</span>
+              </dt>
+              <dd>{row.detail}</dd>
+            </div>
+          ))
+        }
+      </dl>
+
+      <p class="prose-col history__note">
+        That is the whole of it. If a line about this business is not on this
+        page, it is because it has not happened yet.
+      </p>
+    </section>
+
+    <SeedRule density="sparse" />
+
+    <!-- The second gap. The recipe's origin belongs to the family. -->
+    <section class="page band--tight" aria-labelledby="recipe-title">
+      <div class="prose-col">
+        <h2 id="recipe-title">Where the recipe comes from</h2>
+
+        <div class="todo" data-placeholder="recipe-origin">
+          <p class="todo__label">
+            <span class="todo__seed" aria-hidden="true"></span>
+            To be written by the family
+          </p>
+          <p class="todo__body">
+            The recipe has a history and it is not ours to summarise. Hakop's
+            family writes this part, and they decide how it is credited: a name,
+            a household, a place, or nothing at all. Until they have, this space
+            stays empty on purpose.
+          </p>
+          <div class="todo__rules" aria-hidden="true"></div>
+        </div>
+
+        <p class="story__aside">
+          What is safe to say in the meantime: gata is rolled dough with a sweet
+          nut filling, sliced into pieces, washed with egg and topped with
+          sesame.{" "}
+          <a href="/gata">That page explains the rest</a>, including how to say
+          the word.
+        </p>
+      </div>
+    </section>
+
+    <div class="page story__foot">
+      <div class="prose-col">
+        <p>
+          Questions are welcome, including the awkward ones about allergens and
+          about a kitchen in a house.{" "}
+          <a href={`mailto:${business.email}`}>{business.email}</a>.
+        </p>
+        <p class="story__actions">
+          {
+            storeOpen ? (
+              <Button href="/shop" variant="primary">
+                See the trays
+              </Button>
+            ) : (
+              <Button href="/#waitlist" variant="secondary">
+                Tell me when ordering opens
+              </Button>
+            )
+          }
+          <Button href="/gata" variant="quiet">
+            What gata is
+          </Button>
+        </p>
+      </div>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .story__head {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+    align-items: start;
+  }
+
+  .story__lede {
+    margin-top: 1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+    color: var(--color-crust);
+  }
+
+  .story__lede-2 {
+    margin-top: 1rem;
+    color: var(--color-crust-soft);
+  }
+
+  .story__figure {
+    margin: 0;
+  }
+
+  .story__figure :global(img) {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+  }
+
+  .story__figure figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    max-width: 34ch;
+  }
+
+  @media (min-width: 56rem) {
+    .story__head {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+    }
+  }
+
+  /* ---- The marked gaps ---- */
+
+  .todo {
+    margin-top: 1.25rem;
+    padding: clamp(1rem, 3.5vw, 1.5rem);
+    background-color: var(--color-paper);
+    /* Dashed, because nothing else on this site is dashed. It cannot be
+       mistaken for finished copy at a glance or at arm's length. */
+    border: 2px dashed var(--color-line-strong);
+    border-radius: var(--radius-md);
+  }
+
+  .todo__label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-pomegranate);
+  }
+
+  .todo__seed {
+    flex: none;
+    width: 8px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--color-pomegranate);
+    transform: rotate(-24deg);
+  }
+
+  .todo__body {
+    margin-top: 0.7rem;
+    color: var(--color-crust-soft);
+    max-width: 58ch;
+  }
+
+  /* Ruled lines, the shape of the paragraphs that are coming. */
+  .todo__rules {
+    margin-top: 1rem;
+    height: 4.5rem;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 1.4rem,
+      var(--color-line) 1.4rem,
+      var(--color-line) calc(1.4rem + 1px)
+    );
+  }
+
+  .todo__notes {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--color-line-strong);
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .todo__notes-title {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--color-crust);
+  }
+
+  .todo__notes ol {
+    margin: 0.7rem 0 0;
+    padding-left: 1.4rem;
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .todo__notes-foot {
+    margin-top: 0.9rem;
+    font-family: var(--font-mono);
+  }
+
+  /* ---- Coursework ---- */
+
+  .course {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0;
+  }
+
+  .course__item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    padding-block: 0.6rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .course__item:first-child {
+    border-top: 0;
+  }
+
+  .course__seed {
+    flex: none;
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-24deg);
+  }
+
+  /* ---- Work history ---- */
+
+  .history {
+    margin: 1.25rem 0 0;
+  }
+
+  .history__row {
+    padding-block: 0.85rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .history__row dt {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.75rem;
+  }
+
+  .history__what {
+    font-weight: 700;
+  }
+
+  .history__when {
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .history__row dd {
+    margin: 0.25rem 0 0;
+    color: var(--color-crust-soft);
+    font-size: var(--text-sm);
+  }
+
+  .history__note {
+    margin-top: 1.25rem;
+    color: var(--color-crust-soft);
+    font-size: var(--text-sm);
+  }
+
+  /* ---- Foot ---- */
+
+  .story__aside {
+    margin-top: 1.25rem;
+    color: var(--color-crust-soft);
+  }
+
+  .story__foot {
+    padding-top: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  .story__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+</style>

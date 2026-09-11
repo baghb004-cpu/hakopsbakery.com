@@ -1,0 +1,526 @@
+---
+/**
+ * Questions.
+ *
+ * The footer links straight into this page at #delivery and #lead-time, so
+ * those two ids are load bearing. Do not rename an id here without changing
+ * SiteFooter.astro, which is owned by someone else.
+ *
+ * Every answer is either a fact from the catalog and the configuration, or a
+ * plain statement that the answer does not exist yet. Nothing here is filled
+ * in with a plausible number: an invented delivery fee or an invented best by
+ * window would be repeated back by a customer later.
+ *
+ * Answers are all visible. No accordion, because a fragment link into a
+ * collapsed panel is not reliably opened by every browser, and because
+ * somebody scanning for the word "sesame" should find it with a find in page.
+ */
+import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import SeedRule from "@components/SeedRule.astro";
+import { business, commerce, compliance, complianceIsComplete, storeOpen } from "@config/site";
+import { getProduct, listPublishedProducts } from "@lib/catalog-source";
+import { WEEKDAY_NAMES, availableWeekdayNames } from "@lib/catalog";
+import { DEFAULT_DELIVERY_ZIPS } from "@lib/zones";
+
+const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0] ?? null;
+
+const leadDays = product?.leadTimeDays ?? commerce.cutoff.daysBefore;
+const leadWord = leadDays === 1 ? "day" : "days";
+
+const rawHour = commerce.cutoff.hour;
+const cutoffHour = rawHour % 12 === 0 ? 12 : rawHour % 12;
+const cutoffLabel = `${cutoffHour}${rawHour < 12 ? "am" : "pm"}`;
+/* Annotated as a number, not the literal in the config, so the plural below
+   stays correct if the cutoff is ever changed to a single day. */
+const cutoffDays: number = commerce.cutoff.daysBefore;
+const cutoffWord = cutoffDays === 1 ? "day" : "days";
+
+const neverBakes = commerce.neverBakeWeekdays.map((day) => WEEKDAY_NAMES[day] ?? String(day));
+const bakeDays = product ? availableWeekdayNames(product) : [];
+const bakesEveryOtherDay =
+  product !== null &&
+  bakeDays.length === WEEKDAY_NAMES.length - neverBakes.length &&
+  commerce.neverBakeWeekdays.every((day) => !product.availableOn.includes(day));
+
+const deliveryZipCount = DEFAULT_DELIVERY_ZIPS.length;
+
+/*
+  The jump list. Kept next to the sections it points at so that adding a
+  question without listing it is obvious in review.
+*/
+const GROUPS = [
+  {
+    id: "pastry",
+    heading: "The pastry",
+    questions: [
+      { id: "what-is-gata", label: "What is gata?" },
+      { id: "allergens", label: "What is in it, and what about allergies?" },
+      { id: "storage", label: "How do I keep it?" },
+      { id: "nutrition", label: "Is there nutrition information?" },
+    ],
+  },
+  {
+    id: "ordering",
+    heading: "Ordering",
+    questions: [
+      { id: "open", label: "When can I order?" },
+      { id: "lead-time", label: "How far ahead do I have to order?" },
+      { id: "cancel", label: "Can I cancel or change an order?" },
+      { id: "other-pastries", label: "Do you make anything else?" },
+    ],
+  },
+  {
+    id: "getting-it",
+    heading: "Getting it to you",
+    questions: [
+      { id: "pickup", label: "Can I pick it up?" },
+      { id: "delivery", label: "Where do you deliver?" },
+      { id: "shipping", label: "Do you ship?" },
+    ],
+  },
+  {
+    id: "kitchen",
+    heading: "The kitchen",
+    questions: [
+      { id: "home-kitchen", label: "Is it really made in a home kitchen?" },
+      { id: "who-bakes", label: "Who actually bakes it?" },
+    ],
+  },
+];
+---
+
+<Base
+  title="Questions"
+  description="Allergens, storage, lead times, pickup, local delivery and shipping inside California, and what it means that this is baked in a home kitchen in Cypress under cottage food law."
+>
+  <article class="faq">
+    <div class="page band--tight">
+      <div class="prose-col">
+        <h1>Questions</h1>
+        <p class="faq__lede">
+          The things people ask before they order. Where the answer has not
+          been decided yet, this page says so rather than inventing a number.
+        </p>
+      </div>
+
+      <nav class="jump" aria-labelledby="jump-title">
+        <h2 id="jump-title" class="jump__title">Jump to a question</h2>
+        <div class="jump__groups">
+          {
+            GROUPS.map((group) => (
+              <div class="jump__group">
+                <p class="jump__heading">{group.heading}</p>
+                <ul class="jump__list">
+                  {group.questions.map((question) => (
+                    <li>
+                      <a class="jump__link" href={`#${question.id}`}>
+                        {question.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </div>
+      </nav>
+    </div>
+
+    <SeedRule density="normal" />
+
+    <!-- ---------------------------------------------------------------- -->
+
+    <section class="page band--tight" aria-labelledby="pastry-title">
+      <h2 id="pastry-title" class="faq__group-title">The pastry</h2>
+
+      <div class="prose-col faq__answers">
+        <h3 id="what-is-gata">What is gata?</h3>
+        <p>
+          An Armenian pastry: rolled dough with a sweet nut filling, sliced
+          into pieces, washed with egg and topped with sesame seeds. Some
+          households call it nazook, and some call it kata. It is eaten with
+          coffee or tea. There is a longer answer, including how to say the
+          word, on <a href="/gata">the page about gata</a>.
+        </p>
+
+        <h3 id="allergens">What is in it, and what about allergies?</h3>
+        <p>
+          Every tray contains{" "}
+          <strong>{(product?.allergens ?? []).join(", ") || "wheat, milk, egg, almonds, walnuts and sesame"}</strong>.
+          It is baked in a home kitchen that handles all of those, so cross
+          contact is possible and there is no allergen free option.
+        </p>
+        <p>
+          The full ingredient list, in the order it is printed on the label,
+          and what to do if your allergy is severe, are on the{" "}
+          <a href="/legal/allergens">allergen page</a>. If a trace of any of
+          those would send you to hospital, please read it before ordering.
+        </p>
+
+        <h3 id="storage">How do I keep it?</h3>
+        <p>
+          {product?.storage ??
+            "Keep the tray sealed at room temperature and out of direct sun."}
+        </p>
+        {
+          (!product || product.bestByDays === null) && (
+            <p class="faq__open">
+              <span class="faq__open-title">Not answered yet.</span> How many
+              days a tray is good for, and whether it freezes well, are not
+              published because they have not been tested and written down.
+              That window goes on the label, so it will appear here and on the
+              label at the same time. A guess would be worse than a gap.
+            </p>
+          )
+        }
+
+        <h3 id="nutrition">Is there nutrition information?</h3>
+        <p>
+          Not yet. Nutrition figures are voluntary for a kitchen this size, and
+          real ones come from a laboratory rather than from a calculator. When
+          there are figures worth printing they will be on the product page and
+          on the label. Estimated numbers are not published here.
+        </p>
+      </div>
+    </section>
+
+    <SeedRule density="sparse" />
+
+    <!-- ---------------------------------------------------------------- -->
+
+    <section class="page band--tight" aria-labelledby="ordering-title">
+      <h2 id="ordering-title" class="faq__group-title">Ordering</h2>
+
+      <div class="prose-col faq__answers">
+        <h3 id="open">When can I order?</h3>
+        {
+          storeOpen ? (
+            <p>
+              Now. Pick a tray and a bake date in <a href="/shop">the shop</a>.
+            </p>
+          ) : (
+            <p>
+              Not yet.{" "}
+              {!complianceIsComplete && (
+                <span>
+                  {business.name} has applied to register as a Class{" "}
+                  {compliance.operationClass} Cottage Food Operation in{" "}
+                  {compliance.county}, and the number has not been issued yet.
+                  Nothing can be sold until it is.{" "}
+                </span>
+              )}
+              There is no cart on the site today. Leave an email on{" "}
+              <a href="/#waitlist">the home page</a> and you will hear on the
+              day that changes.
+            </p>
+          )
+        }
+
+        <h3 id="lead-time">How far ahead do I have to order?</h3>
+        <p>
+          At least <span class="tabular">{leadDays}</span> {leadWord}. Orders
+          for a bake date close at{" "}
+          <span class="tabular">{cutoffLabel}</span>,{" "}
+          <span class="tabular">{cutoffDays}</span> {cutoffWord} before that
+          date, which is when the ingredients get bought and the batch gets
+          scheduled.
+        </p>
+        <p>
+          {
+            bakesEveryOtherDay
+              ? `Bake days are every day except ${neverBakes.join(" and ")}, when Hakop is in class.`
+              : bakeDays.length > 0
+                ? `Bake days are ${bakeDays.join(", ")}.`
+                : `Tuesday is never a bake day, because Hakop is in class.`
+          }{" "}
+          {
+            storeOpen
+              ? "The picker shows the dates that are actually open, and a full date shows as full there rather than as an error at payment."
+              : "When ordering opens, the picker will show the dates that are actually open rather than every date on the calendar."
+          }
+        </p>
+
+        <h3 id="cancel">Can I cancel or change an order?</h3>
+        <p>
+          Free until the cutoff for your bake date. After that the ingredients
+          are bought and the tray is scheduled, so a change of mind is not
+          refunded. Anything wrong with the food itself is made right within 48
+          hours with a photograph. The whole policy, which is still a draft, is
+          on the <a href="/legal/refunds">refunds page</a>.
+        </p>
+
+        <h3 id="other-pastries">Do you make anything else?</h3>
+        <p>
+          No. One pastry, made properly, is the whole catalog. If that changes
+          it will be on this site rather than only on a phone call.
+        </p>
+      </div>
+    </section>
+
+    <SeedRule density="sparse" />
+
+    <!-- ---------------------------------------------------------------- -->
+
+    <section class="page band--tight" aria-labelledby="getting-title">
+      <h2 id="getting-title" class="faq__group-title">Getting it to you</h2>
+
+      <div class="prose-col faq__answers">
+        <h3 id="pickup">Can I pick it up?</h3>
+        <p>
+          Yes. Pickup is in {business.city}, and it is the simplest way to get
+          a tray: no fee, and it goes straight from the kitchen to you.
+        </p>
+        <p class="faq__open">
+          <span class="faq__open-title">Not answered yet.</span> The pickup
+          times, and the exact address, are not published on this site. The
+          address goes to you with the order rather than onto a public page,
+          and the windows are set once {business.owner} knows what his week
+          looks like around class and work.
+        </p>
+
+        <h3 id="delivery">Where do you deliver?</h3>
+        <p>
+          Locally, around {business.city}, in Orange County. The draft area
+          covers Cypress, La Palma, Buena Park, Stanton, Los Alamitos,
+          Cerritos, and parts of Anaheim and Garden Grove:{" "}
+          <span class="tabular">{deliveryZipCount}</span> postal codes in all.
+        </p>
+        <p>
+          That list is a first draft and {business.owner} has not confirmed how
+          far he is willing to drive. Your postal code is checked at checkout
+          against the real list, and that check is the authority, not this
+          paragraph. If delivery cannot reach you, shipping inside California
+          can.
+        </p>
+        <p class="faq__open">
+          <span class="faq__open-title">Not answered yet.</span> Whether
+          delivery costs anything, and whether there is a minimum order for it,
+          are not set. Both will show at checkout before you pay, never after.
+        </p>
+
+        <h3 id="shipping">Do you ship?</h3>
+        <p>
+          Inside California, yes. Outside California, no, and that is the law
+          rather than a preference: a cottage food operation may only sell
+          within its own state. There is no exception for a gift, and an order
+          with an out of state address is refunded rather than sent.
+        </p>
+        <p>
+          Shipping is by carrier and the cost is worked out at checkout from
+          where it is going.
+        </p>
+      </div>
+    </section>
+
+    <SeedRule density="sparse" />
+
+    <!-- ---------------------------------------------------------------- -->
+
+    <section class="page band--tight" aria-labelledby="kitchen-title">
+      <h2 id="kitchen-title" class="faq__group-title">The kitchen</h2>
+
+      <div class="prose-col faq__answers">
+        <h3 id="home-kitchen">Is it really made in a home kitchen?</h3>
+        <p>
+          Yes, and that is said plainly at the foot of every page on this site
+          and on every label: {compliance.homeKitchenStatement}
+        </p>
+        <p>
+          A Class {compliance.operationClass} Cottage Food Operation is a
+          category in California law for food made at home and sold directly to
+          the person eating it. The county registers the kitchen and sets what
+          may be made in it. It is not the same as a restaurant inspection, and
+          this site does not pretend otherwise.
+        </p>
+        {
+          complianceIsComplete ? (
+            <p>
+              The registration number is at the foot of every page, issued by{" "}
+              {compliance.county}.
+            </p>
+          ) : (
+            <p class="faq__open">
+              <span class="faq__open-title">Registration is pending.</span> The
+              application is with {compliance.county}. Until the number is
+              issued, nothing is for sale here.
+            </p>
+          )
+        }
+
+        <h3 id="who-bakes">Who actually bakes it?</h3>
+        <p>
+          {business.owner}, by himself. He is studying Culinary Arts Management
+          at Cypress College, he is ServSafe Food Handler and ServSafe Allergens
+          certified, and he has six years working in food service.{" "}
+          <a href="/story">More about him is here</a>.
+        </p>
+      </div>
+    </section>
+
+    <div class="page band--tight faq__foot">
+      <div class="prose-col">
+        <h2 class="faq__foot-title">Still stuck?</h2>
+        <p>
+          Ask. It goes to {business.owner} and he answers it himself.
+        </p>
+        <p class="faq__actions">
+          <Button href="/contact" variant="secondary">Contact Hakop</Button>
+          {
+            storeOpen ? (
+              <Button href="/shop" variant="primary">
+                See the trays
+              </Button>
+            ) : (
+              <Button href="/#waitlist" variant="primary">
+                Tell me when ordering opens
+              </Button>
+            )
+          }
+        </p>
+      </div>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .faq__lede {
+    margin-top: 1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+    color: var(--color-crust-soft);
+  }
+
+  /* ---- The jump list ---- */
+
+  .jump {
+    margin-top: clamp(1.5rem, 4vw, 2.25rem);
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .jump__title {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--color-crust-soft);
+  }
+
+  .jump__groups {
+    margin-top: 0.75rem;
+    display: grid;
+    gap: 1rem 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  }
+
+  .jump__heading {
+    font-weight: 700;
+    font-size: var(--text-sm);
+    color: var(--color-crust);
+  }
+
+  .jump__list {
+    list-style: none;
+    margin: 0.15rem 0 0;
+    padding: 0;
+    display: grid;
+    /* Each link below is a 44px row. Without this the rows are flush and two
+       neighbouring targets touch, so a thumb one pixel off lands on the
+       wrong question. Eight pixels is the floor. */
+    gap: 0.5rem;
+  }
+
+  .jump__link {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding-block: 0.1rem;
+    font-size: var(--text-sm);
+    color: var(--color-stitch);
+    text-decoration: none;
+  }
+
+  .jump__link:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  /* ---- Answers ---- */
+
+  .faq__group-title {
+    font-size: var(--text-2xl);
+    scroll-margin-top: 6rem;
+  }
+
+  .faq__answers {
+    margin-top: 0.5rem;
+  }
+
+  .faq__answers h3 {
+    margin-top: 2rem;
+    scroll-margin-top: 6rem;
+    /* A single seed sits in the gutter beside each question, so the page
+       reads as a tray of them rather than a stack of identical cards. */
+    position: relative;
+  }
+
+  .faq__answers h3::before {
+    content: "";
+    position: absolute;
+    left: -1.15rem;
+    top: 0.62em;
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-24deg);
+  }
+
+  /* At narrow widths the gutter does not exist, so the seed goes above the
+     question rather than off the left edge of the screen. */
+  @media (max-width: 40rem) {
+    .faq__answers h3::before {
+      left: 0;
+      top: -0.55rem;
+    }
+
+    .faq__answers h3 {
+      padding-top: 0.35rem;
+    }
+  }
+
+  .faq__answers p {
+    margin-top: 0.8rem;
+  }
+
+  .faq__open {
+    padding: 0.85rem 1rem;
+    border: 1px dashed var(--color-line-strong);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .faq__open-title {
+    font-weight: 700;
+    color: var(--color-crust);
+  }
+
+  /* ---- Foot ---- */
+
+  .faq__foot {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .faq__foot-title {
+    font-size: var(--text-xl);
+  }
+
+  .faq__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+</style>

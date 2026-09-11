@@ -1,0 +1,260 @@
+---
+/**
+ * The cart.
+ *
+ * The cart itself lives in `localStorage` and holds a sku, a variant id and a
+ * quantity. It does not hold a price, and this page does not send one: the
+ * names, the photographs and the figures beside each line are joined on here
+ * from the catalog this page was built from, purely so a customer can read
+ * what they picked. The server prices the order again before anybody is
+ * charged. Section 4 of docs/ARCHITECTURE.md.
+ *
+ * Two islands, and they never speak to each other. `CartView` writes lines,
+ * `FulfillmentPicker` writes a mode, a ZIP and a bake date, and both write
+ * into the same store in `src/lib/cart.ts`. The checkout gate on the next
+ * page reads that store. Nothing here is lifted into a React context.
+ *
+ * WITH THE STORE CLOSED. The cart still renders, and it still tells somebody
+ * what this browser has saved, because a cart that silently empties itself
+ * looks like a bug. What it does not do is offer a bake day: asking a person
+ * to choose a date for an order that cannot be placed is theatre, and the
+ * picker would go to the network to build it. The three ways to get a tray
+ * are stated in plain text instead.
+ */
+import { getImage } from "astro:assets";
+
+import Base from "@layouts/Base.astro";
+import Button from "@components/Button.astro";
+import ComplianceLine from "@components/ComplianceLine.astro";
+import SeedRule from "@components/SeedRule.astro";
+import CartView from "@islands/CartView";
+import FulfillmentPicker from "@islands/FulfillmentPicker";
+
+import { business, storeOpen } from "@config/site";
+import { listProducts } from "@lib/catalog-source";
+import {
+  heroImage,
+  resolveImage,
+  variantIsSellable,
+  type ProductImage,
+} from "@lib/catalog";
+
+/*
+  Every product, not only the published ones. A line saved last week for
+  something since retired still has to render as a name rather than as a raw
+  sku, and the island needs the record in order to do that.
+*/
+const products = await listProducts();
+
+/* The thumbnail is small and fixed, so it is optimised once here rather than
+   asking a browser to shrink a 900 pixel photograph in a 72 pixel box. */
+const THUMB = 180;
+
+const catalog = await Promise.all(
+  products.map(async (product) => {
+    const record: ProductImage =
+      product.images.find((image) => image.role === "package") ?? heroImage(product);
+    const resolved = resolveImage(record);
+    const height = Math.round((THUMB * record.height) / record.width);
+
+    const src =
+      typeof resolved === "string"
+        ? resolved
+        : (await getImage({ src: resolved, width: THUMB, height })).src;
+
+    return {
+      sku: product.sku,
+      name: product.name,
+      href: `/shop/${product.slug}`,
+      variants: product.variants.map((variant) => ({
+        id: variant.id,
+        label: variant.label,
+        priceCents: variant.priceCents,
+        pricingStatus: variant.pricingStatus,
+        piecesPerUnit: variant.piecesPerUnit,
+        sellable: variantIsSellable(variant),
+      })),
+      image: { src, alt: record.alt, width: THUMB, height },
+    };
+  }),
+);
+---
+
+<Base
+  title="Cart"
+  description="What is in your cart, how you would like to get it, and what is made in a home kitchen that is not inspected."
+>
+  <div class="page band--tight">
+    <header class="intro prose-col">
+      <h1>Cart</h1>
+      {
+        storeOpen ? (
+          <p class="intro__lede">
+            Check the trays, choose how you want them, then pay on Stripe's own
+            page. Nothing is held until payment goes through.
+          </p>
+        ) : (
+          <p class="intro__lede">
+            Ordering is not open yet, so nothing here can be bought and nothing
+            has been charged. Whatever this browser has saved is listed below
+            and it will still be here when the trays go on sale.
+          </p>
+        )
+      }
+    </header>
+
+    <div class="cart">
+      <CartView
+        client:idle
+        catalog={catalog}
+        storeOpen={storeOpen}
+        shopHref="/shop"
+        headingLevel={2}
+        contactEmail={business.email}
+      />
+    </div>
+  </div>
+
+  <SeedRule density="sparse" />
+
+  {
+    storeOpen ? (
+      <div class="page band--tight">
+        <div class="picker">
+          <FulfillmentPicker client:visible id="fulfillment" headingLevel={2} contactEmail={business.email} />
+        </div>
+
+        <p class="cart__next">
+          <Button href="/checkout" variant="primary" size="lg">
+            Continue to checkout
+          </Button>
+        </p>
+      </div>
+    ) : (
+      <section class="page band--tight" aria-labelledby="ways-title">
+        <h2 id="ways-title">How a tray will reach you</h2>
+        <dl class="facts">
+          <div class="facts__row">
+            <dt>Pickup</dt>
+            <dd>
+              Collect in {business.city} on the day it is baked. The address
+              and the window go out with the order confirmation.
+            </dd>
+          </div>
+          <div class="facts__row">
+            <dt>Local delivery</dt>
+            <dd>
+              {business.city} and the towns next to it. The checkout checks the
+              ZIP before it takes an order, so nobody finds out at payment.
+            </dd>
+          </div>
+          <div class="facts__row">
+            <dt>Shipping</dt>
+            <dd>
+              Anywhere in California, and nowhere else. A cottage food
+              operation may not sell across a state line.
+            </dd>
+          </div>
+        </dl>
+
+        <p class="cart__next">
+          <Button href="/#waitlist" variant="secondary" size="lg">
+            Tell me when ordering opens
+          </Button>
+        </p>
+      </section>
+    )
+  }
+
+  <SeedRule density="sparse" />
+
+  <section class="page band--tight" aria-labelledby="kitchen-title">
+    <h2 id="kitchen-title">Where this food is made</h2>
+    <div class="kitchen prose-col">
+      <p>
+        Every tray is baked in Hakop's own kitchen at home, not in a commercial
+        bakery. California allows that, for a kitchen registered with the
+        county, and it requires the sentence below to be said plainly rather
+        than buried in a footer. So here it is, at the size everything else on
+        this page is set in.
+      </p>
+      <div class="kitchen__line">
+        <ComplianceLine variant="inline" />
+      </div>
+      <p class="kitchen__allergens">
+        The kitchen handles wheat, milk, egg, almonds, walnuts and sesame.
+        Read the <a href="/legal/allergens">allergen statement</a> if that
+        matters in your household.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .intro__lede {
+    margin-top: 0.9rem;
+    font-size: var(--text-lg);
+    color: var(--color-crust-soft);
+  }
+
+  .cart {
+    margin-top: 1.75rem;
+  }
+
+  .picker {
+    max-width: 44rem;
+  }
+
+  .cart__next {
+    margin-top: 1.75rem;
+  }
+
+  .facts {
+    margin: 1.25rem 0 0;
+    display: grid;
+    max-width: 54rem;
+  }
+
+  .facts__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding-block: 0.9rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .facts__row:last-child {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .facts dt {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+  }
+
+  .facts dd {
+    margin: 0;
+    color: var(--color-crust-soft);
+    max-width: 66ch;
+  }
+
+  .kitchen {
+    margin-top: 1rem;
+  }
+
+  .kitchen__line {
+    margin-top: 1.15rem;
+  }
+
+  .kitchen__allergens {
+    margin-top: 1.15rem;
+    color: var(--color-crust-soft);
+  }
+
+  @media (min-width: 40rem) {
+    .facts__row {
+      grid-template-columns: 11rem minmax(0, 1fr);
+      gap: 0.5rem 1.5rem;
+    }
+  }
+</style>

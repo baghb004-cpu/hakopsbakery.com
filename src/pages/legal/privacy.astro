@@ -1,0 +1,188 @@
+---
+/**
+ * Privacy.
+ *
+ * Short, because there is genuinely little to say, and specific, because a
+ * short privacy policy is only worth reading if it names the actual services
+ * rather than saying "our trusted partners".
+ *
+ * Everything stated here is checkable in this repository: the analytics
+ * choice is docs/DECISIONS.md D-002, the consent record is written by
+ * netlify/functions/subscribe.ts, and the cart lives in localStorage because
+ * of src/lib/cart.ts. If one of those changes, this page changes with it.
+ */
+import LegalLayout from "@components/LegalLayout.astro";
+import { business, analytics, storeOpen } from "@config/site";
+
+const TOC = [
+  { id: "short", label: "The short version" },
+  { id: "waitlist", label: "If you join the waiting list" },
+  { id: "orders", label: "If you place an order" },
+  { id: "payments", label: "Payments" },
+  { id: "analytics", label: "Visitor numbers" },
+  { id: "cookies", label: "Cookies and your browser" },
+  { id: "who", label: "Who else handles it" },
+  { id: "choices", label: "Asking for it back, or gone" },
+  { id: "changes", label: "Changes to this page" },
+];
+---
+
+<LegalLayout
+  title="Privacy"
+  description="What this site collects, which is very little: an email address if you ask to hear when ordering opens, and an order if you place one. No cookies, no advertising trackers, and no card numbers ever reach us."
+  updated="2026-09-11"
+  lede="This is a one person bakery selling one pastry. It collects the least it can, and this page says exactly what that is."
+  toc={TOC}
+>
+  <h2 id="short">The short version</h2>
+
+  <ul>
+    <li>No advertising trackers and no cookies are set by this site.</li>
+    <li>Your card number never reaches us. Stripe handles payment.</li>
+    <li>
+      An email address is collected only if you tick the box asking to hear
+      when ordering opens, and it is used for that and nothing else.
+    </li>
+    <li>Nothing is sold, rented or shared for anybody else's marketing.</li>
+  </ul>
+
+  <h2 id="waitlist">If you join the waiting list</h2>
+
+  <p>
+    The form stores your email address, the exact sentence you agreed to, the
+    version of that sentence, the time you agreed, and the IP address the
+    request came from. The IP address is there to stop one robot signing up ten
+    thousand times, and for nothing else.
+  </p>
+
+  <p>
+    The wording is stored with the address on purpose. If you ever ask what you
+    agreed to, the answer can be produced word for word instead of paraphrased.
+  </p>
+
+  <p>
+    You get one message: the day ordering opens. Asking to come off the list
+    takes one email and it is done.
+  </p>
+
+  <h2 id="orders">If you place an order</h2>
+
+  <p>
+    An order needs a name, an email address to send the confirmation to, and an
+    address if the tray is being delivered or shipped. For a pickup order there
+    is still a billing address, because sales tax is worked out from it.
+  </p>
+
+  <p>
+    Kept with the order: what you bought, the bake date you chose, the
+    fulfilment method, and the cottage food disclosure you ticked along with
+    the version of its wording. That record is what makes a refund or a
+    question about an old order answerable.
+  </p>
+
+  {
+    !storeOpen && (
+      <p class="unsettled">
+        <span class="unsettled-title">Nothing can be ordered yet.</span> The
+        store is closed, so none of this has happened and no order data exists
+        at all today.
+      </p>
+    )
+  }
+
+  <h2 id="payments">Payments</h2>
+
+  <p>
+    Payment is taken by Stripe on a page Stripe hosts. Your card number, expiry
+    and security code go to Stripe and never touch this site or any machine of
+    ours. What comes back is whether the payment worked, the last four digits,
+    and the address you gave.
+  </p>
+
+  <p>
+    Stripe has its own privacy policy at{" "}
+    <a href="https://stripe.com/privacy" rel="noopener">stripe.com/privacy</a>,
+    and as the payment processor they are the ones holding the card details.
+  </p>
+
+  <h2 id="analytics">Visitor numbers</h2>
+
+  {
+    analytics.cloudflareToken ? (
+      <p>
+        This site uses Cloudflare Web Analytics to count page views. It sets no
+        cookies, it does not fingerprint your browser, it does not follow you
+        to any other website, and it collects nothing that identifies you. It
+        was chosen over Google Analytics for exactly that reason, and because
+        it is about a kilobyte rather than forty five.
+      </p>
+    ) : (
+      <p>
+        No analytics script is running on this site at the moment. If one is
+        switched on it will be Cloudflare Web Analytics, which sets no cookies,
+        does not fingerprint your browser and collects nothing that identifies
+        you. That is also why there is no cookie banner on this page.
+      </p>
+    )
+  }
+
+  <h2 id="cookies">Cookies and your browser</h2>
+
+  <p>
+    This site sets no cookies, which is why you have not been asked to accept
+    any.
+  </p>
+
+  <p>
+    Two things are stored inside your own browser rather than on a server: what
+    is in your cart, and whether this browser has already joined the waiting
+    list. Both stay on your device, neither is readable by us, and clearing
+    your browser data removes them.
+  </p>
+
+  <p>
+    The web host keeps ordinary server logs, including IP addresses, for a
+    short period. That is how any website on the internet works and it is not
+    used to build a profile of you.
+  </p>
+
+  <h2 id="who">Who else handles it</h2>
+
+  <ul>
+    <li><strong>Netlify</strong> hosts the site and runs the small functions behind ordering.</li>
+    <li><strong>Stripe</strong> takes payment and holds the card details.</li>
+    <li><strong>Cloudflare</strong> serves the domain and, if it is switched on, counts page views.</li>
+  </ul>
+
+  <p class="unsettled">
+    <span class="unsettled-title">Not chosen yet.</span> There is no email
+    sending service in place. One is needed before ordering opens, so that an
+    order confirmation can reach you, and it will be named on this page before
+    it is used to send anything.
+  </p>
+
+  <h2 id="choices">Asking for it back, or gone</h2>
+
+  <p>
+    Write to{" "}
+    <a href={`mailto:${business.email}?subject=Privacy`}>{business.email}</a>{" "}
+    and ask what is held about you, or ask for it to be deleted. Both are
+    answered by {business.owner} himself.
+  </p>
+
+  <p>
+    Order records are the one thing that cannot be deleted on request straight
+    away: a business has to keep its sales records. The waiting list is not a
+    sales record, and coming off it is immediate.
+  </p>
+
+  <p>Nothing here is sold, and there is no advertising to opt out of.</p>
+
+  <h2 id="changes">Changes to this page</h2>
+
+  <p>
+    If what is collected changes, this page changes on the same day and the
+    date at the top changes with it. If the change is significant and you are
+    on the waiting list, you will be told rather than left to notice.
+  </p>
+</LegalLayout>

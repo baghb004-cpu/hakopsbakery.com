@@ -1,0 +1,241 @@
+---
+/**
+ * Terms of sale.
+ *
+ * Written in plain English rather than in legalese, because the person
+ * reading it is buying a tray of pastry from a student with a home kitchen,
+ * and a page of defined terms would be theatre.
+ *
+ * TODO, for Hakop: nothing on this page has been read by a lawyer. It states
+ * only things that are already true of how the site works, and it makes no
+ * promise the kitchen cannot keep, but a review before the store opens would
+ * be cheap insurance. The refunds page is the one with an open decision on it.
+ */
+import LegalLayout from "@components/LegalLayout.astro";
+import { business, commerce, compliance, complianceIsComplete, storeOpen } from "@config/site";
+
+const rawHour = commerce.cutoff.hour;
+const cutoffHour = rawHour % 12 === 0 ? 12 : rawHour % 12;
+const cutoffLabel = `${cutoffHour}${rawHour < 12 ? "am" : "pm"}`;
+/* A number, not the config literal, so the plural survives a change. */
+const daysBefore: number = commerce.cutoff.daysBefore;
+const dayWord = daysBefore === 1 ? "day" : "days";
+
+const TOC = [
+  { id: "who", label: "Who you are buying from" },
+  { id: "california", label: "California only" },
+  { id: "ordering", label: "How an order works" },
+  { id: "made-to-order", label: "Bake dates and the cutoff" },
+  { id: "allergens", label: "Allergens" },
+  { id: "getting-it", label: "Pickup, delivery and shipping" },
+  { id: "after", label: "Once the tray is yours" },
+  { id: "resale", label: "Trays are for eating, not reselling" },
+  { id: "prices", label: "Prices and availability" },
+  { id: "wrong", label: "When something goes wrong" },
+  { id: "site", label: "The site itself" },
+  { id: "law", label: "Which law applies" },
+];
+---
+
+<LegalLayout
+  title="Terms of sale"
+  description="The terms you buy under: a Class A cottage food operation in Cypress, California, selling direct to customers inside California only, with orders made to order against a bake date."
+  updated="2026-09-11"
+  lede="What you are agreeing to when you order. It is short, and it says only things that are already true of how this bakery works."
+  toc={TOC}
+>
+  <h2 id="who">Who you are buying from</h2>
+
+  <p>
+    {business.name} is {business.owner}, working from a home kitchen
+    in {business.city}, California. It is a Class {compliance.operationClass}{" "}
+    Cottage Food Operation, which is a category in California law for food made
+    at home and sold directly to the person eating it.
+  </p>
+
+  {
+    complianceIsComplete ? (
+      <p>
+        The kitchen is registered with {compliance.county}. The registration
+        number appears at the foot of every page on this site and on every
+        label.
+      </p>
+    ) : (
+      <p class="unsettled">
+        <span class="unsettled-title">Registration is pending.</span> The
+        application is with {compliance.county} and no number has been issued
+        yet. Until it is, nothing can be ordered and nothing can be sold. The
+        foot of every page says the same thing.
+      </p>
+    )
+  }
+
+  <h2 id="california">California only</h2>
+
+  <p>
+    Everything sold here stays inside California. Cottage food law does not
+    allow this kitchen to sell across a state line, so there is no shipping to
+    the rest of the country, and there is no exception for a gift or a friend.
+  </p>
+
+  <p>
+    The address is checked before checkout, checked again by the payment page,
+    and checked a third time after payment against the address you actually
+    entered. If an order comes through with an address outside California it is
+    refunded in full automatically and you are emailed to say why. Nothing is
+    kept.
+  </p>
+
+  <h2 id="ordering">How an order works</h2>
+
+  <p>
+    You choose a tray, a bake date and how you want to receive it, and you pay
+    through Stripe. The price you pay is the price the server works out from
+    the catalog, not a number sent from your browser, so the amount on the
+    payment page is the amount.
+  </p>
+
+  <p>
+    An order is confirmed when the payment completes and you get a confirmation
+    with a reference on it. Until then nothing is reserved. If a bake date
+    fills up while you are checking out, the order is refused before payment
+    rather than after it.
+  </p>
+
+  <p>
+    {business.owner} can refuse an order. That is rare and it is usually
+    capacity: one person with one oven cannot bake everything that is asked
+    for. A refused order is refunded in full.
+  </p>
+
+  <h2 id="made-to-order">Bake dates and the cutoff</h2>
+
+  <p>
+    Nothing here is sitting on a shelf. You order against a bake date and the
+    tray is made for that date.
+  </p>
+
+  <p>
+    Orders for a date close at <span class="tabular">{cutoffLabel}</span>,{" "}
+    <span class="tabular">{daysBefore}</span> {dayWord} before it. Tuesday is
+    never a bake day, because {business.owner} is in class. What you can cancel
+    and when is on the{" "}
+    <a href="/legal/refunds">refunds and cancellations page</a>.
+  </p>
+
+  <h2 id="allergens">Allergens</h2>
+
+  <div class="pullout">
+    <p>
+      <strong>Every tray contains wheat, milk, egg, almonds, walnuts and
+      sesame</strong>, and it is baked in a home kitchen that handles all six,
+      so cross contact is possible. Read the{" "}
+      <a href="/legal/allergens">full allergen statement</a> before you order
+      for anybody with an allergy.
+    </p>
+  </div>
+
+  <p>
+    By ordering you are confirming that you have read what is in it. The
+    ingredient list on the product page, on this site and on the printed label
+    is the same list.
+  </p>
+
+  <h2 id="getting-it">Pickup, delivery and shipping</h2>
+
+  <p>
+    For pickup, come at the time agreed for that bake date. Orders nobody
+    collects are covered on the refunds page.
+  </p>
+
+  <p>
+    For local delivery, the tray goes to the address on the order and somebody
+    needs to be able to take it. For shipping, it goes to a California address
+    by carrier, and how long a parcel spends in transit is up to the carrier.
+  </p>
+
+  <h2 id="after">Once the tray is yours</h2>
+
+  <p>
+    Keep it the way the label says: sealed, at room temperature, out of direct
+    sun. Once it has left {business.owner}'s hands, how it is stored is yours.
+  </p>
+
+  <p>
+    If something is wrong with the food itself, that is not your fault and it
+    is not treated as though it is. See the{" "}
+    <a href="/legal/refunds">refunds page</a>.
+  </p>
+
+  <h2 id="resale">Trays are for eating, not reselling</h2>
+
+  <p>
+    A Class {compliance.operationClass} cottage food operation may only sell
+    directly to the person who is going to eat the food. That is the law rather
+    than a preference, so a tray bought here cannot be resold in a shop, a
+    cafe, a market stall or a catering job.
+  </p>
+
+  <p>
+    Buying a tray for a party, an office or a family gathering is exactly what
+    it is for. Reselling it is the thing that is not allowed.
+  </p>
+
+  <h2 id="prices">Prices and availability</h2>
+
+  <p>
+    Prices can change, and a bake date can fill up or be cancelled. The site is
+    the current word on both. An order already paid for keeps the price it was
+    paid at.
+  </p>
+
+  {
+    !storeOpen && (
+      <p class="unsettled">
+        <span class="unsettled-title">Nothing is for sale today.</span> The
+        store is closed, so no figure shown anywhere on this site is a price
+        you can pay.
+      </p>
+    )
+  }
+
+  <p>
+    California sales tax is worked out at checkout from the address you give,
+    where it applies.
+  </p>
+
+  <h2 id="wrong">When something goes wrong</h2>
+
+  <p>
+    If a tray is wrong, late, damaged or never arrives, you get a replacement
+    or your money back. That is the remedy, and it is the most this bakery can
+    do: it is one person selling pastry, and it cannot cover a loss larger than
+    what you paid for the order.
+  </p>
+
+  <p>
+    Nothing here limits anything California law does not let it limit, and
+    nothing here takes away a right you have as a consumer.
+  </p>
+
+  <h2 id="site">The site itself</h2>
+
+  <p>
+    The photographs on this site are of the real product and they belong to
+    {" "}{business.owner}, along with the words around them. Please do not
+    reuse them to advertise something else.
+  </p>
+
+  <h2 id="law">Which law applies</h2>
+
+  <p>
+    California law, and the courts of Orange County, California. Since
+    everything sold here is sold inside California, that is the only sensible
+    answer.
+  </p>
+
+  <p>
+    If part of this page turned out to be unenforceable, the rest of it would
+    still stand.
+  </p>
+</LegalLayout>

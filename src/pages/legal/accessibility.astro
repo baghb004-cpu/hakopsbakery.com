@@ -1,0 +1,191 @@
+---
+/**
+ * Accessibility.
+ *
+ * Two lists: what has actually been checked, and what has not. The second
+ * list is the reason the page is worth publishing. An accessibility statement
+ * that only claims a target is a claim; one that names the gaps is useful to
+ * the person reading it, and it is honest about a site that no screen reader
+ * user has sat in front of yet.
+ *
+ * Everything in the checked list is enforced by something in this repository:
+ * scripts/check-contrast.mjs computes real WCAG ratios from the tokens,
+ * scripts/check-html.mjs audits the built pages for landmarks, headings,
+ * image dimensions, labels and 100vh, and scripts/check-copy.mjs reads the
+ * copy. If a claim here stops being true, one of those starts failing.
+ */
+import LegalLayout from "@components/LegalLayout.astro";
+import { business, storeOpen } from "@config/site";
+
+const TOC = [
+  { id: "target", label: "The target" },
+  { id: "checked", label: "What has been checked" },
+  { id: "not-checked", label: "What has not been checked" },
+  { id: "stripe", label: "The payment step" },
+  { id: "report", label: "Telling us about a problem" },
+  { id: "another-way", label: "Ordering another way" },
+];
+---
+
+<LegalLayout
+  title="Accessibility"
+  description="This site targets WCAG 2.2 Level AA. What has been checked, what has not been checked yet, and how to report a problem and still get your order placed."
+  updated="2026-09-11"
+  lede="This site aims at WCAG 2.2 Level AA. Here is what has actually been checked against that, what has not been checked yet, and what to do if something here gets in your way."
+  toc={TOC}
+>
+  <h2 id="target">The target</h2>
+
+  <p>
+    The standard is the Web Content Accessibility Guidelines 2.2, Level AA. It
+    is the level most public bodies are held to, and it is a reasonable floor
+    for a shop that wants everybody to be able to buy from it.
+  </p>
+
+  <p>
+    Aiming at a standard is not the same as meeting it everywhere. The two
+    lists below are the current honest position.
+  </p>
+
+  <h2 id="checked">What has been checked</h2>
+
+  <p>
+    Most of these are checked by scripts that read the finished pages rather
+    than by eye, because eye judgement on a warm palette is unreliable. The
+    rest are built into the one set of components every page is made from, so
+    a mistake shows up everywhere at once instead of hiding on one page.
+  </p>
+
+  <ul>
+    <li>
+      <strong>Colour contrast.</strong> Every text and background pair used in
+      the design is computed against the real WCAG formula. The gold in this
+      palette does not pass on the page background, so it is used for
+      decoration only and a darker gold carries any text.
+    </li>
+    <li>
+      <strong>Structure.</strong> Every page has one main heading, real
+      landmarks (header, main, footer), headings that go in order without
+      skipping a level, and a skip link as the first thing you reach with the
+      keyboard.
+    </li>
+    <li>
+      <strong>Images.</strong> Every photograph carries a width, a height and
+      alt text that describes the food rather than naming the file.
+    </li>
+    <li>
+      <strong>Forms.</strong> Every field has a real label, not a placeholder
+      pretending to be one, and every field is at least 16 pixels so that
+      Safari on an iPhone does not zoom the page when you tap into it.
+    </li>
+    <li>
+      <strong>Keyboard.</strong> Everything that can be clicked can be reached
+      and operated with a keyboard, and the focus ring is visible on every
+      background used here.
+    </li>
+    <li>
+      <strong>Tap targets.</strong> Buttons and links are at least 44 by 44
+      pixels with space between them.
+    </li>
+    <li>
+      <strong>Motion.</strong> There is very little, and what there is answers
+      something you did. If your system asks for reduced motion, it is switched
+      off.
+    </li>
+    <li>
+      <strong>Width and zoom.</strong> The layout works from 320 pixels wide
+      upward without sideways scrolling, and the text reflows rather than
+      shrinking when you zoom in.
+    </li>
+    <li>
+      <strong>Reading without JavaScript.</strong> Every page that tells you
+      something (the product, what gata is, the allergen statement, the label
+      page) is plain HTML and needs no JavaScript at all. The cart and the
+      checkout do need it.
+    </li>
+  </ul>
+
+  <h2 id="not-checked">What has not been checked</h2>
+
+  <p>
+    Nothing below has been done yet, and saying so is more useful than a badge
+    that implies it has.
+  </p>
+
+  <ul>
+    <li>
+      No end to end pass with a screen reader. VoiceOver, NVDA and TalkBack are
+      on the list and none of them has been run through the whole site.
+    </li>
+    <li>
+      No testing with people who actually use assistive technology daily. That
+      is the test that finds what the scripts cannot.
+    </li>
+    <li>No independent accessibility audit.</li>
+    <li>
+      No pass on real hardware across the full device and browser matrix. The
+      layout has been built to the rules above, not yet signed off on physical
+      devices.
+    </li>
+    <li>
+      No Armenian language version. It is planned, and the family writes that
+      copy rather than a translation tool.
+    </li>
+  </ul>
+
+  <h2 id="stripe">The payment step</h2>
+
+  <p>
+    Payment happens on a page hosted by Stripe, not on this site. Its
+    accessibility is Stripe's work and not something that can be fixed from
+    here. If that page is what stops you, say so, because there is another way
+    to place the order.
+  </p>
+
+  <h2 id="report">Telling us about a problem</h2>
+
+  <p>
+    Write to{" "}
+    <a href={`mailto:${business.email}?subject=Accessibility`}>{business.email}</a>.{" "}
+    It goes to {business.owner}. What helps most:
+  </p>
+
+  <ul>
+    <li>Which page, or a link to it.</li>
+    <li>What you were trying to do.</li>
+    <li>What happened instead.</li>
+    <li>
+      Your browser and device, and the assistive technology you use, if you are
+      happy to say.
+    </li>
+  </ul>
+
+  <p>
+    A reply will say what will be done and roughly when, or say plainly if
+    something cannot be fixed quickly. A problem that blocks somebody from
+    ordering goes to the front of the queue.
+  </p>
+
+  <h2 id="another-way">Ordering another way</h2>
+
+  <div class="pullout">
+    <p>
+      <strong>If any part of this site stops you from ordering, email{" "}
+      <a href={`mailto:${business.email}?subject=Order%20by%20email`}>
+        {business.email}
+      </a>{" "}
+      and the order gets taken by email instead.</strong> You do not have to
+      explain why, and it does not cost more.
+    </p>
+  </div>
+
+  {
+    !storeOpen && (
+      <p class="unsettled">
+        <span class="unsettled-title">Ordering is not open yet.</span> Nothing
+        can be bought from anybody today, by any route. The offer above stands
+        from the day the store opens.
+      </p>
+    )
+  }
+</LegalLayout>

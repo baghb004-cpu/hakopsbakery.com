@@ -1,0 +1,732 @@
+---
+/**
+ * One product.
+ *
+ * This page is the label, in readable text, with a photograph and a way to
+ * order. Everything a customer needs in order to decide whether they can
+ * safely eat this is on it: the full ingredient list in the order it is
+ * printed, the allergen statement, how to keep it, how long it takes to make,
+ * how it reaches them, and who made it and under what registration.
+ *
+ * None of that is behind a tab, an accordion or a link, because a person with
+ * a walnut allergy should not have to hunt. The cottage food disclosure is
+ * rendered by `ComplianceLine`, which is the only component in this codebase
+ * allowed to print those three values.
+ *
+ * STATIC, FOR EVERY PRODUCT, INCLUDING RETIRED ONES.
+ *
+ * `getStaticPaths` walks the whole catalog rather than only the published
+ * part. A product that has been taken off the shop still has a URL in the
+ * world, on a printed label and in somebody's messages, and answering that
+ * URL with the ingredients and a plain sentence about it not being listed is
+ * better than a 404.
+ *
+ * BOTH STORE STATES.
+ *
+ * `isPurchasable` decides whether a price is shown with something to press.
+ * While it is false the page keeps the photographs, the label and the story,
+ * and puts the waiting list where the cart would be. No figure in the catalog
+ * is presented as a price anybody can pay until Hakop has confirmed it and
+ * the county has issued a registration number.
+ */
+import { Image } from "astro:assets";
+
+import Base from "@layouts/Base.astro";
+import ComplianceLine from "@components/ComplianceLine.astro";
+import SeedRule from "@components/SeedRule.astro";
+import StickyOrderBar from "@components/StickyOrderBar.astro";
+import AddToCart from "@islands/AddToCart";
+import EmailCapture from "@islands/EmailCapture";
+
+import { business, commerce, storeOpen } from "@config/site";
+import { listProducts } from "@lib/catalog-source";
+import {
+  WEEKDAY_NAMES,
+  allergenSentence,
+  availableWeekdayNames,
+  galleryImages,
+  heroImage,
+  ingredientSentence,
+  isPurchasable,
+  priceRangeCents,
+  resolveImage,
+  variantIsSellable,
+  type Product,
+  type ProductImage,
+} from "@lib/catalog";
+import { formatMoneyRange } from "@lib/money";
+
+export async function getStaticPaths() {
+  const products = await listProducts();
+  return products.map((product) => ({
+    params: { slug: product.slug },
+    props: { product },
+  }));
+}
+
+interface Props {
+  product: Product;
+}
+
+const { product } = Astro.props;
+
+const buyable = isPurchasable(product);
+const { low, high } = priceRangeCents(product);
+const priceLabel = buyable ? formatMoneyRange(low, high) : null;
+
+/* The island takes a flat shape, so the catalog type never reaches a bundle. */
+const islandVariants = product.variants.map((variant) => ({
+  id: variant.id,
+  label: variant.label,
+  priceCents: variant.priceCents,
+  pricingStatus: variant.pricingStatus,
+  piecesPerUnit: variant.piecesPerUnit,
+  sellable: variantIsSellable(variant),
+}));
+
+/* ---- Photographs ------------------------------------------------- */
+
+/*
+  Never ask for a width the file does not have. These are phone photographs
+  and an upscaled crop of one looks like an upscaled crop of one.
+*/
+function widthsFor(image: ProductImage, wanted: readonly number[]): number[] {
+  const usable = wanted.filter((w) => w <= image.width);
+  return usable.length > 0 ? usable : [image.width];
+}
+
+const hero = heroImage(product);
+const heroSrc = resolveImage(hero);
+const heroWidths = widthsFor(hero, [420, 640, 860, 1060]);
+const HERO_SIZES = "(min-width: 60rem) 34rem, 92vw";
+
+const gallery = galleryImages(product).map((image) => ({
+  image,
+  src: resolveImage(image),
+  widths: widthsFor(image, [360, 540, 720]),
+}));
+const GALLERY_SIZES = "(min-width: 48rem) 22rem, 88vw";
+
+/* ---- Schedule ---------------------------------------------------- */
+
+/*
+  Said the way a person says it. When the only days he does not bake are the
+  days he cannot bake, the honest sentence is the short one.
+*/
+const bakeDayNames = availableWeekdayNames(product);
+const neverBakes = commerce.neverBakeWeekdays.map((day) => WEEKDAY_NAMES[day] ?? String(day));
+const bakesEveryOtherDay =
+  product.availableOn.length === WEEKDAY_NAMES.length - neverBakes.length &&
+  commerce.neverBakeWeekdays.every((day) => !product.availableOn.includes(day));
+const bakeDayLine = bakesEveryOtherDay
+  ? `Every day except ${neverBakes.join(" and ")}, when Hakop is in class.`
+  : `${bakeDayNames.join(", ")}.`;
+
+const rawHour = commerce.cutoff.hour;
+const cutoffHour = rawHour % 12 === 0 ? 12 : rawHour % 12;
+const cutoffLabel = `${cutoffHour}${rawHour < 12 ? "am" : "pm"}`;
+
+const leadUnit = product.leadTimeDays === 1 ? "day" : "days";
+
+/* ---- Sizes, in words, for the summary line ----------------------- */
+
+const sizeLine = product.variants.map((variant) => variant.label.toLowerCase()).join(" or ");
+
+const description = `${product.description} Ingredient list, allergens and storage in full.`;
+---
+
+<Base title={product.name} description={description}>
+  <div class="page band--tight">
+    <div class="product">
+      <figure class="product__media">
+        {
+          typeof heroSrc === "string" ? (
+            <img
+              src={heroSrc}
+              alt={hero.alt}
+              width={hero.width}
+              height={hero.height}
+              loading="eager"
+              decoding="sync"
+              fetchpriority="high"
+            />
+          ) : (
+            <Image
+              src={heroSrc}
+              alt={hero.alt}
+              width={hero.width}
+              height={hero.height}
+              widths={heroWidths}
+              sizes={HERO_SIZES}
+              loading="eager"
+              decoding="sync"
+              fetchpriority="high"
+              quality="high"
+            />
+          )
+        }
+      </figure>
+
+      <div class="product__intro">
+        <p class="product__back">
+          <a href="/shop">Back to everything for sale</a>
+        </p>
+
+        <h1 class="product__title">
+          {product.name}{" "}
+          {
+            product.nameHy && (
+              <span class="product__native" lang="hy">
+                {product.nameHy}
+              </span>
+            )
+          }
+        </h1>
+
+        <p class="product__desc">{product.description}</p>
+
+        {
+          !product.active && (
+            <p class="product__retired">
+              This tray is not on the shop at the moment. The label below is
+              still what was baked, so it is here for anyone who has one.
+            </p>
+          )
+        }
+
+        <p class="product__summary">
+          Sold by the tray, {sizeLine}. Baked to order, so allow{" "}
+          <span class="tabular">{product.leadTimeDays}</span> {leadUnit}.
+        </p>
+
+        <p class="product__allergens-quick">
+          <strong>{allergenSentence(product)}</strong>
+          <a class="product__jump" href="#label">Read the whole label</a>
+        </p>
+
+        <div class="product__order" id="order">
+          <h2 class="product__order-title">
+            {buyable ? "Order a tray" : "Ordering"}
+          </h2>
+
+          {
+            /*
+              Open: the control is live, mounted at idle so the photograph
+              decodes first. Closed: the island renders its own explanation as
+              plain HTML and there is nothing to interact with, so it ships no
+              JavaScript at all. Same component, same words, one bundle fewer.
+            */
+            buyable ? (
+              <AddToCart
+                client:idle
+                sku={product.sku}
+                productName={product.name}
+                variants={islandVariants}
+                purchasable={true}
+                storeOpen={storeOpen}
+                headingLevel={3}
+                waitlistHref="#waitlist"
+              />
+            ) : (
+              <AddToCart
+                sku={product.sku}
+                productName={product.name}
+                variants={islandVariants}
+                purchasable={false}
+                storeOpen={storeOpen}
+                headingLevel={3}
+                waitlistHref="#waitlist"
+              />
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <SeedRule density="normal" />
+
+  <section class="page band--tight" id="label" aria-labelledby="label-title">
+    <h2 id="label-title">What the label says</h2>
+
+    <p class="label__lede prose-col">
+      Word for word, the same as the label on the tray. Ingredient names are
+      required by law and they are all here. Amounts are Hakop's and they are
+      not.
+    </p>
+
+    <div class="label">
+      <p class="label__ingredients">{ingredientSentence(product)}</p>
+
+      <p class="label__allergens">
+        <strong>{allergenSentence(product)}</strong>
+        <span class="label__allergens-note">
+          Baked in one home kitchen where wheat, milk, egg, tree nuts and
+          sesame are all handled. Traces cannot be ruled out. If a reaction in
+          your household is severe, read the{" "}
+          <a href="/legal/allergens">allergen statement</a> before ordering.
+        </span>
+      </p>
+
+      <dl class="label__facts">
+        <div class="label__fact">
+          <dt>Keeping it</dt>
+          <dd>{product.storage}</dd>
+        </div>
+        <div class="label__fact">
+          <dt>Best by</dt>
+          <dd>
+            {
+              product.bestByDays === null ? (
+                <>
+                  Not set yet. Hakop fixes the window before the first tray
+                  goes out, and it is printed on the label you receive.
+                </>
+              ) : (
+                <>
+                  Within <span class="tabular">{product.bestByDays}</span>{" "}
+                  {product.bestByDays === 1 ? "day" : "days"} of the bake day.
+                  The date is printed on the label.
+                </>
+              )
+            }
+          </dd>
+        </div>
+        {
+          product.servingSuggestion && (
+            <div class="label__fact">
+              <dt>Serving</dt>
+              <dd>{product.servingSuggestion}</dd>
+            </div>
+          )
+        }
+        <div class="label__fact">
+          <dt>Sizes</dt>
+          <dd>
+            <ul class="label__sizes">
+              {
+                product.variants.map((variant) => (
+                  <li>
+                    {variant.label}
+                    {variant.piecesPerUnit !== null && (
+                      <>
+                        , <span class="tabular">{variant.piecesPerUnit}</span>{" "}
+                        {variant.piecesPerUnit === 1 ? "piece" : "pieces"}
+                      </>
+                    )}
+                    {variant.netWeightGrams !== null && (
+                      <>
+                        , net <span class="tabular">{variant.netWeightGrams}</span> g
+                      </>
+                    )}
+                  </li>
+                ))
+              }
+            </ul>
+          </dd>
+        </div>
+        <div class="label__fact">
+          <dt>Made by</dt>
+          <dd>
+            {business.owner}, {business.name}, {business.city},{" "}
+            {business.state}.
+          </dd>
+        </div>
+        {
+          product.nutrition && (
+            <div class="label__fact">
+              <dt>Nutrition</dt>
+              <dd>
+                Serving size{" "}
+                <span class="tabular">{product.nutrition.servingSizeGrams}</span> g,{" "}
+                <span class="tabular">{product.nutrition.servingsPerContainer}</span>{" "}
+                per tray,{" "}
+                <span class="tabular">{product.nutrition.calories}</span> calories
+                a serving. The full panel is printed on the tray.
+              </dd>
+            </div>
+          )
+        }
+      </dl>
+    </div>
+
+    <div class="label__compliance">
+      <ComplianceLine variant="inline" />
+    </div>
+  </section>
+
+  <SeedRule density="sparse" />
+
+  <section class="page band--tight" aria-labelledby="timing-title">
+    <h2 id="timing-title">When it is baked, and how you get it</h2>
+
+    <dl class="facts">
+      <div class="facts__row">
+        <dt>Notice</dt>
+        <dd>
+          <span class="tabular">{product.leadTimeDays}</span> {leadUnit} between
+          an order and the tray being ready. Orders for a bake day close at{" "}
+          <span class="tabular">{cutoffLabel}</span>,{" "}
+          <span class="tabular">{commerce.cutoff.daysBefore}</span> days before
+          it, which is the time it takes to shop for what goes in it.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Bake days</dt>
+        <dd>
+          {bakeDayLine} Full days show as full in the picker, before you pay,
+          never as a refusal afterwards.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Pickup</dt>
+        <dd>
+          Collect in {business.city} on the day it is baked. The address and
+          the window are in the email that confirms the order.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Local delivery</dt>
+        <dd>
+          {business.city} and the towns next to it. Enter a ZIP at checkout and
+          it is checked before anything is taken.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Shipping</dt>
+        <dd>
+          Anywhere in California. A cottage food operation may not sell across
+          a state line, so the checkout refuses an address outside it.
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  {
+    gallery.length > 0 && (
+      <section class="page band--tight" aria-labelledby="gallery-title">
+        <h2 id="gallery-title">More of the tray</h2>
+        <ul class="gallery">
+          {gallery.map(({ image, src, widths }) => (
+            <li class="gallery__item">
+              <figure class="gallery__figure">
+                {typeof src === "string" ? (
+                  <img
+                    src={src}
+                    alt={image.alt}
+                    width={image.width}
+                    height={image.height}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <Image
+                    src={src}
+                    alt={image.alt}
+                    width={image.width}
+                    height={image.height}
+                    widths={widths}
+                    sizes={GALLERY_SIZES}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                )}
+              </figure>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    !buyable && (
+      <>
+        <SeedRule density="dense" />
+        <section class="page band--tight">
+          <div class="waitlist">
+            <EmailCapture
+              client:visible
+              source={`product:${product.slug}`}
+              id="waitlist"
+              headingLevel={2}
+              lede="Ordering is not open yet. Leave an email and you will hear on the day the trays go on sale."
+              contactEmail={business.email}
+              privacyHref="/legal/privacy"
+            />
+          </div>
+        </section>
+      </>
+    )
+  }
+
+  {
+    /*
+      Phones only, and it is the last thing in main so it has a tall enough
+      containing block to stick within. See StickyOrderBar.astro.
+    */
+  }
+  <StickyOrderBar
+    name={product.name}
+    price={priceLabel}
+    note={buyable ? null : "Not taking orders yet"}
+    href={buyable ? "#order" : "#waitlist"}
+    label={buyable ? "Choose a tray" : "Join the list"}
+  />
+</Base>
+
+<style>
+  /* ---- The top of the page ---- */
+
+  .product {
+    display: grid;
+    gap: clamp(1.25rem, 4vw, 2.5rem);
+    align-items: start;
+  }
+
+  .product__media {
+    margin: 0;
+    background-color: var(--color-sesame-deep);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    overflow: clip;
+  }
+
+  .product__media :global(img) {
+    width: 100%;
+    height: auto;
+  }
+
+  .product__back {
+    font-size: var(--text-sm);
+    margin-bottom: 0.65rem;
+  }
+
+  /* A 44px row for a link that sits on its own above a heading. */
+  .product__back a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .product__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.75rem;
+    font-size: var(--text-3xl);
+  }
+
+  .product__native {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--color-eggwash-ink);
+  }
+
+  .product__desc {
+    margin-top: 0.9rem;
+    font-size: var(--text-lg);
+    color: var(--color-crust-soft);
+    max-width: 60ch;
+  }
+
+  .product__retired {
+    margin-top: 0.9rem;
+    padding: 0.7rem 0.9rem;
+    background-color: var(--color-paper);
+    border-left: 3px solid var(--color-eggwash);
+    max-width: 60ch;
+  }
+
+  .product__summary {
+    margin-top: 0.9rem;
+    max-width: 60ch;
+  }
+
+  .product__allergens-quick {
+    margin-top: 1rem;
+    padding: 0.7rem 0.9rem;
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-left: 3px solid var(--color-pomegranate);
+    border-radius: var(--radius-sm);
+    max-width: 60ch;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.9rem;
+  }
+
+  .product__jump {
+    font-size: var(--text-sm);
+  }
+
+  .product__order {
+    margin-top: 1.75rem;
+    scroll-margin-top: 6rem;
+  }
+
+  .product__order-title {
+    font-size: var(--text-xl);
+    margin-bottom: 0.75rem;
+  }
+
+  /* ---- The label ---- */
+
+  .label__lede {
+    margin-top: 0.9rem;
+    color: var(--color-crust-soft);
+  }
+
+  .label {
+    margin-top: 1.25rem;
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-top: 3px solid var(--color-crust);
+    border-radius: var(--radius-sm);
+    padding: clamp(1rem, 3.5vw, 1.6rem);
+    max-width: 46rem;
+  }
+
+  /* Label text is never decorative and never shrunk. */
+  .label__ingredients {
+    font-size: var(--text-base);
+    line-height: 1.6;
+  }
+
+  .label__allergens {
+    margin-top: 1rem;
+    padding-left: 0.9rem;
+    border-left: 3px solid var(--color-pomegranate);
+  }
+
+  .label__allergens strong {
+    display: block;
+    font-size: var(--text-lg);
+    color: var(--color-crust);
+  }
+
+  .label__allergens-note {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  .label__facts {
+    margin: 1.4rem 0 0;
+    display: grid;
+  }
+
+  .label__fact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding-block: 0.75rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .label__fact dt {
+    font-weight: 600;
+    color: var(--color-crust);
+  }
+
+  .label__fact dd {
+    margin: 0;
+    color: var(--color-crust-soft);
+  }
+
+  .label__sizes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .label__compliance {
+    margin-top: 1.5rem;
+  }
+
+  /* ---- Timing and fulfillment ---- */
+
+  .facts {
+    margin: 1.25rem 0 0;
+    display: grid;
+    max-width: 54rem;
+  }
+
+  .facts__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding-block: 0.9rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .facts__row:last-child {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .facts dt {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+  }
+
+  .facts dd {
+    margin: 0;
+    color: var(--color-crust-soft);
+    max-width: 66ch;
+  }
+
+  /* ---- Gallery ---- */
+
+  .gallery {
+    list-style: none;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: clamp(0.75rem, 2.5vw, 1.25rem);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  }
+
+  .gallery__figure {
+    margin: 0;
+    background-color: var(--color-sesame-deep);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    overflow: clip;
+  }
+
+  .gallery__figure :global(img) {
+    width: 100%;
+    height: auto;
+  }
+
+  .waitlist {
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-top: 3px solid var(--color-eggwash);
+    border-radius: var(--radius-md);
+    padding: clamp(1.1rem, 4vw, 1.75rem);
+    max-width: 44rem;
+  }
+
+  /* ---- Wider ---- */
+
+  @media (min-width: 48rem) {
+    .label__fact {
+      grid-template-columns: 9rem minmax(0, 1fr);
+      gap: 0.5rem 1.25rem;
+    }
+
+    .facts__row {
+      grid-template-columns: 11rem minmax(0, 1fr);
+      gap: 0.5rem 1.5rem;
+    }
+  }
+
+  @media (min-width: 60rem) {
+    .product {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+</style>

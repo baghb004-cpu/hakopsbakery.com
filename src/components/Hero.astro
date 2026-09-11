@@ -1,0 +1,253 @@
+---
+/**
+ * The home hero.
+ *
+ * The photograph leads. Not a large centred headline laid over a picture with
+ * the product pushed under the fold: the tray is the first thing on the page,
+ * shot close enough to read the sesame, and the order action sits directly
+ * under it where a thumb already is.
+ *
+ * Two crops, genuinely different pictures rather than one image squeezed.
+ * A phone gets the portrait frame of the same tray, a wide screen gets the
+ * landscape one, and `<picture>` picks before the browser fetches anything.
+ *
+ * This is the LCP element on the site's most visited page, so it is eager,
+ * high priority, and never lazy. Everything below it is lazy instead.
+ *
+ * The actions are a slot. The hero does not know whether the store is open,
+ * because the page does, and that keeps one component instead of two.
+ */
+import { getImage } from "astro:assets";
+import wideSource from "@/assets/photos/gata-rows-wide.jpg";
+import tallSource from "@/assets/photos/gata-rows-tall.jpg";
+
+interface Props {
+  title: string;
+  lede: string;
+  /**
+   * A short honest state line above the heading. The real state of the
+   * business, never a slogan. Optional.
+   */
+  status?: string;
+  /** One description covers both crops: they are the same tray. */
+  alt?: string;
+  class?: string;
+}
+
+const {
+  title,
+  lede,
+  status,
+  alt = "Rows of gata on the tray, cut faces showing the nut filling turned " +
+    "inside the dough, sesame seeds caught in the gold egg wash.",
+  class: className = "",
+} = Astro.props;
+
+/* The files, at their real sizes. Both are phone photographs, so the widths
+   below stop at the native width rather than asking sharp to invent detail. */
+const WIDE = { width: 860, height: 600 };
+const TALL = { width: 700, height: 950 };
+
+const wideWidths = [430, 645, 860];
+const tallWidths = [350, 525, 700];
+
+const [wideAvif, wideJpeg, tallAvif, tallJpeg] = await Promise.all([
+  getImage({ src: wideSource, widths: wideWidths, format: "avif", quality: "high" }),
+  getImage({ src: wideSource, widths: wideWidths, format: "jpeg", quality: "high" }),
+  getImage({ src: tallSource, widths: tallWidths, format: "avif", quality: "high" }),
+  getImage({ src: tallSource, widths: tallWidths, format: "jpeg", quality: "high" }),
+]);
+
+/* Below 48rem the picture is the full width of the page. Above it, the photo
+   takes the wider of two columns inside the 84rem container. */
+const WIDE_SIZES = "(min-width: 84rem) 46rem, 54vw";
+const TALL_SIZES = "100vw";
+const SWITCH = "(min-width: 48rem)";
+---
+
+<section class={`hero ${className}`.trim()} aria-labelledby="hero-title">
+  <div class="page page--wide hero__inner">
+    <figure class="hero__media">
+      <div class="hero__frame">
+        <picture>
+          <source
+            media={SWITCH}
+            type="image/avif"
+            srcset={wideAvif.srcSet.attribute}
+            sizes={WIDE_SIZES}
+            width={WIDE.width}
+            height={WIDE.height}
+          />
+          <source
+            media={SWITCH}
+            type="image/jpeg"
+            srcset={wideJpeg.srcSet.attribute}
+            sizes={WIDE_SIZES}
+            width={WIDE.width}
+            height={WIDE.height}
+          />
+          <source
+            type="image/avif"
+            srcset={tallAvif.srcSet.attribute}
+            sizes={TALL_SIZES}
+            width={TALL.width}
+            height={TALL.height}
+          />
+          <img
+            class="hero__img"
+            src={tallJpeg.src}
+            srcset={tallJpeg.srcSet.attribute}
+            sizes={TALL_SIZES}
+            width={TALL.width}
+            height={TALL.height}
+            alt={alt}
+            loading="eager"
+            decoding="sync"
+            fetchpriority="high"
+          />
+        </picture>
+      </div>
+    </figure>
+
+    <div class="hero__plate">
+      {
+        status && (
+          <p class="hero__status">
+            <span class="hero__seed" aria-hidden="true" />
+            {status}
+          </p>
+        )
+      }
+      <h1 id="hero-title" class="hero__title">{title}</h1>
+      <p class="hero__lede">{lede}</p>
+      <div class="hero__actions">
+        <slot />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero__inner {
+    display: grid;
+    gap: 0;
+    padding-block: clamp(0.75rem, 2.5vw, 2rem) 0;
+  }
+
+  .hero__media {
+    margin: 0;
+    /* Full bleed on a phone. The negative inline margin is exactly the
+       container padding, so it reaches the viewport edge and not past it. */
+    margin-inline: calc(-1 * clamp(1rem, 4vw, 2.5rem));
+  }
+
+  .hero__frame {
+    position: relative;
+    aspect-ratio: 700 / 950;
+    /* Tall enough to be the subject, short enough that the order action is
+       still on screen on a small phone. Never vh: it breaks under the
+       browser chrome on iOS at exactly the wrong moment. */
+    max-height: 56svh;
+    overflow: hidden;
+    background-color: var(--color-sesame-deep);
+  }
+
+  .hero__frame :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* The tray fills the frame from the top, so the crop keeps the rows
+       rather than the empty pan. */
+    object-position: 50% 35%;
+  }
+
+  .hero__plate {
+    position: relative;
+    z-index: 1;
+    margin-top: -2.5rem;
+    margin-inline: 0;
+    padding: clamp(1.1rem, 4vw, 1.6rem) clamp(1.1rem, 4vw, 1.75rem)
+      clamp(1.25rem, 4vw, 1.75rem);
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    /* A hairline, not a floating drop shadow. Paper on a table. */
+    box-shadow: var(--lift-2);
+  }
+
+  .hero__status {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-eggwash-ink);
+    margin-bottom: 0.55rem;
+  }
+
+  /* One seed, thrown by hand, doing the job a bullet would do badly. */
+  .hero__seed {
+    flex: none;
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-24deg);
+  }
+
+  .hero__title {
+    font-size: var(--text-3xl);
+    max-width: 16ch;
+  }
+
+  .hero__lede {
+    margin-top: 0.75rem;
+    max-width: 34ch;
+    color: var(--color-crust-soft);
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    /* 44px targets, kept at least 8px apart in both directions. */
+    gap: 0.75rem;
+    margin-top: clamp(1rem, 3vw, 1.4rem);
+  }
+
+  @media (min-width: 48rem) {
+    .hero__inner {
+      grid-template-columns: minmax(0, 1.12fr) minmax(19rem, 0.88fr);
+      align-items: center;
+      padding-block: clamp(1.5rem, 3.5vw, 3rem);
+    }
+
+    .hero__media {
+      margin-inline: 0;
+    }
+
+    .hero__frame {
+      aspect-ratio: 860 / 600;
+      max-height: none;
+      border-radius: var(--radius-md);
+    }
+
+    .hero__plate {
+      margin-top: 0;
+      align-self: center;
+    }
+
+    .hero__title {
+      max-width: 14ch;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    /* The plate laps over the edge of the photograph, the way a pinned card
+       sits on a tray. It never covers the cut faces of the pieces. */
+    .hero__plate {
+      margin-inline-start: -3rem;
+    }
+  }
+</style>

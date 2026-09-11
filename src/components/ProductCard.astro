@@ -1,0 +1,367 @@
+---
+/**
+ * One product, as a card, on the home page and in the shop index.
+ *
+ * WHAT THIS IS NOT.
+ *
+ * It is not a rounded rectangle with a soft grey shadow, repeated three times
+ * to fill a row. The brief names that as a tell and it is banned outright.
+ *
+ * WHAT IT IS INSTEAD.
+ *
+ * A tray label. Paper, a warm hairline, square shoulders, and the photograph
+ * sitting flush at the top the way a picture is stuck to a bakery case card.
+ * Under the photograph runs a hand thrown line of sesame, the same motif the
+ * dividers use, so the card belongs to this site and could not be lifted onto
+ * another one. The paper tab leans at the angle the rows lean on the pan, and
+ * that is the only leaning element on the card: the lean is a signature, and a
+ * signature written twice on a page is a pattern.
+ *
+ * It renders for one product or for twelve. Nothing here knows how many there
+ * are, what the product is called, or whether the store is open: it reads all
+ * of that from the record and from `isPurchasable`.
+ *
+ * A price appears only when there is something to buy at it. While the store
+ * is closed, or while a price is still a placeholder, the card shows the sizes
+ * and the waiting list instead. Presenting a guessed number next to a button
+ * is how a customer ends up arguing about a price nobody agreed to.
+ */
+import { Image } from "astro:assets";
+import Button from "@components/Button.astro";
+import SeedRule from "@components/SeedRule.astro";
+import {
+  heroImage,
+  isPurchasable,
+  priceRangeCents,
+  resolveImage,
+  type Product,
+  type ProductImage,
+} from "@lib/catalog";
+import { formatMoneyRange } from "@lib/money";
+import { storeOpen } from "@config/site";
+
+interface Props {
+  product: Product;
+  /** The page owns the outline, so it picks the level. */
+  headingLevel?: 2 | 3;
+  /** True only for a card above the fold. Everything else waits. */
+  eager?: boolean;
+  /** Where "tell me when it opens" goes while the store is closed. */
+  waitlistHref?: string;
+  class?: string;
+}
+
+const {
+  product,
+  headingLevel = 3,
+  eager = false,
+  waitlistHref = "#waitlist",
+  class: className = "",
+} = Astro.props;
+
+const Heading = `h${headingLevel}` as "h2" | "h3";
+const href = `/shop/${product.slug}`;
+const buyable = isPurchasable(product);
+const { low, high } = priceRangeCents(product);
+
+/*
+  The packed tray, shot from above, if the catalog has one. It reads better at
+  card size than the close macro does, and it is what arrives at the door.
+*/
+const record: ProductImage =
+  product.images.find((image) => image.role === "package") ?? heroImage(product);
+const resolved = resolveImage(record);
+
+/* Never ask for a width the photograph does not have. These were taken on a
+   phone, and an upscaled crop of a phone photograph looks like one. */
+const CARD_WIDTHS = [320, 480, 640, 900].filter((w) => w <= record.width);
+const widths = CARD_WIDTHS.length > 0 ? CARD_WIDTHS : [record.width];
+const attrWidth = widths[widths.length - 1] ?? record.width;
+const attrHeight = Math.round((attrWidth * record.height) / record.width);
+const SIZES = "(min-width: 62rem) 21rem, (min-width: 36rem) 45vw, 90vw";
+
+/*
+  The leaning tab, derived rather than typed. When every size ends in the same
+  word, that word is what the thing is sold by, and saying so is useful. When
+  a future product's sizes do not agree, there is no honest single word for it
+  and the tab is simply absent.
+*/
+function soldBy(item: Product): string | null {
+  const last = item.variants.map((variant) => {
+    const words = variant.label.trim().toLowerCase().split(/\s+/);
+    return words[words.length - 1] ?? "";
+  });
+  const first = last[0];
+  if (!first || first.length < 3 || /\d/.test(first)) return null;
+  return last.every((word) => word === first) ? `Sold by the ${first}` : null;
+}
+
+const tab = soldBy(product);
+const sizes = product.variants.map((variant) => variant.label).join(", ");
+---
+
+<article class={`card ${className}`.trim()}>
+  <div class="card__media">
+    <a class="card__photo" href={href} tabindex="-1" aria-hidden="true">
+      {
+        /*
+          A repository photograph comes back as ImageMetadata and gets a
+          srcset. A Phase 2 storage URL comes back as a string, which
+          astro:assets will not size for us, so it goes out as a plain img
+          with the width and height the catalog recorded. Same split as the
+          product page and the cart.
+        */
+        typeof resolved === "string" ? (
+          <img
+            src={resolved}
+            alt={record.alt}
+            width={attrWidth}
+            height={attrHeight}
+            loading={eager ? "eager" : "lazy"}
+            decoding={eager ? "sync" : "async"}
+            fetchpriority={eager ? "high" : "auto"}
+          />
+        ) : (
+          <Image
+            src={resolved}
+            alt={record.alt}
+            width={attrWidth}
+            height={attrHeight}
+            widths={widths}
+            sizes={SIZES}
+            loading={eager ? "eager" : "lazy"}
+            decoding={eager ? "sync" : "async"}
+            fetchpriority={eager ? "high" : "auto"}
+          />
+        )
+      }
+    </a>
+    {tab && <p class="card__tab lean">{tab}</p>}
+  </div>
+
+  <div class="card__seam">
+    <SeedRule density="dense" />
+  </div>
+
+  <div class="card__body">
+    <Heading class="card__title">
+      <a class="card__link" href={href}>{product.name}</a>{" "}
+      {
+        product.nameHy && (
+          <span class="card__native" lang="hy">
+            {product.nameHy}
+          </span>
+        )
+      }
+    </Heading>
+
+    <p class="card__desc">{product.description}</p>
+
+    <dl class="card__facts">
+      <div class="card__fact">
+        <dt>Sizes</dt>
+        <dd>{sizes}</dd>
+      </div>
+      <div class="card__fact">
+        <dt>Ready in</dt>
+        <dd>
+          <span class="tabular">{product.leadTimeDays}</span>
+          {product.leadTimeDays === 1 ? " day" : " days"}
+        </dd>
+      </div>
+      <div class="card__fact">
+        <dt>Contains</dt>
+        <dd>{product.allergens.join(", ")}</dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="card__foot">
+    {
+      buyable ? (
+        <>
+          <p class="card__price tabular" data-price={String(low)}>
+            {formatMoneyRange(low, high)}
+          </p>
+          <Button href={href} variant="primary" aria-label={`Order ${product.name}`}>
+            Order
+          </Button>
+        </>
+      ) : storeOpen ? (
+        <>
+          <p class="card__state">Not available at the moment.</p>
+          <Button href={href} variant="secondary">
+            See the details
+          </Button>
+        </>
+      ) : (
+        <>
+          <p class="card__state">
+            Ordering opens once the county registration is in hand.
+          </p>
+          <Button href={waitlistHref} variant="secondary">
+            Tell me when it opens
+          </Button>
+        </>
+      )
+    }
+  </div>
+</article>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-paper);
+    /* A warm hairline, square shouldered. No grey, no float. */
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    /* The one flat lift in the system: a line under the paper, not a blur. */
+    box-shadow: var(--lift-1);
+    overflow: clip;
+  }
+
+  .card__media {
+    position: relative;
+    background-color: var(--color-sesame-deep);
+  }
+
+  .card__photo {
+    display: block;
+    aspect-ratio: 5 / 4;
+    overflow: hidden;
+  }
+
+  .card__photo :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /*
+    The one leaning element. It sits at the angle the rows sit at on the pan.
+    global.css flattens it below 30rem, where a rotation costs more room than
+    it is worth, and under a reduced motion preference nothing here moves at
+    all because nothing here animates.
+  */
+  .card__tab {
+    position: absolute;
+    left: 0.85rem;
+    bottom: 1rem;
+    margin: 0;
+    padding: 0.28rem 0.7rem;
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--color-crust);
+    /* First letter capital, rest as written. Never all caps and tracked. */
+    text-transform: none;
+  }
+
+  .card__seam {
+    /* The sesame line sits on the seam between photograph and paper. */
+    margin-top: -0.4rem;
+    margin-bottom: -0.2rem;
+    position: relative;
+  }
+
+  .card__body {
+    padding: 0.6rem clamp(1rem, 3.5vw, 1.35rem) 0;
+    flex: 1 1 auto;
+  }
+
+  .card__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.6rem;
+    font-size: var(--text-xl);
+  }
+
+  .card__link {
+    color: var(--color-crust);
+    text-decoration: none;
+  }
+
+  .card__link:hover {
+    color: var(--color-stitch);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .card__native {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--color-eggwash-ink);
+  }
+
+  .card__desc {
+    margin-top: 0.5rem;
+    color: var(--color-crust-soft);
+    font-size: var(--text-sm);
+    /* Body copy stays well inside 80 characters at every width. */
+    max-width: 48ch;
+  }
+
+  .card__facts {
+    margin: 0.9rem 0 0;
+    display: grid;
+    gap: 0;
+    font-size: var(--text-sm);
+  }
+
+  .card__fact {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: 0.25rem 0.75rem;
+    padding-block: 0.5rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .card__fact dt {
+    color: var(--color-crust-soft);
+    font-weight: 600;
+  }
+
+  .card__fact dd {
+    margin: 0;
+    color: var(--color-crust);
+  }
+
+  .card__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: clamp(0.9rem, 3vw, 1.15rem) clamp(1rem, 3.5vw, 1.35rem);
+    margin-top: 0.35rem;
+    background-color: var(--color-sesame);
+    border-top: 1px solid var(--color-line);
+  }
+
+  .card__price {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 600;
+  }
+
+  .card__state {
+    margin: 0;
+    flex: 1 1 12rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    max-width: 34ch;
+  }
+
+  @media (max-width: 24rem) {
+    /* At the narrowest widths the action gets its own line and full width,
+       rather than being squeezed under 44px. */
+    .card__foot :global(.btn) {
+      width: 100%;
+    }
+  }
+</style>

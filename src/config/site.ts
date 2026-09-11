@@ -12,6 +12,8 @@
  * Secrets live in the Netlify function environment and never reach the client.
  */
 
+import { HOME_KITCHEN_STATEMENT, DISCLOSURE_VERSION } from "./compliance-text";
+
 const env = import.meta.env;
 
 /** Trim, then treat an empty string the same as an absent variable. */
@@ -87,19 +89,10 @@ export const compliance = {
   county: readEnv("PUBLIC_CFO_COUNTY") ?? "Orange County",
   /** Class A covers direct sales to the end customer. Section 3, Step 1. */
   operationClass: "A",
-  /**
-   * The exact wording required on the label and anywhere the operation
-   * advertises. Do not paraphrase this string. If the county asks for
-   * different wording, change it here and in docs/COMPLIANCE.md together.
-   */
-  homeKitchenStatement:
-    "Made in a home kitchen that is not inspected by the Department of Public Health.",
-  /**
-   * Version stamp for the disclosure wording. Stored alongside every recorded
-   * consent so we can prove which wording a customer actually agreed to.
-   * Bump this whenever homeKitchenStatement changes.
-   */
-  disclosureVersion: "2026-09-11.a",
+  /* Fixed legal wording, from the one module both the pages and the
+     Netlify functions read. See src/config/compliance-text.ts. */
+  homeKitchenStatement: HOME_KITCHEN_STATEMENT,
+  disclosureVersion: DISCLOSURE_VERSION,
   /** ISO date. The admin warns at 60 and 30 days out. Section 12. */
   registrationExpiry: readEnv("PUBLIC_CFO_EXPIRY"),
   sellersPermit: readEnv("PUBLIC_SELLERS_PERMIT"),

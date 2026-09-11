@@ -1,0 +1,233 @@
+---
+/**
+ * The allergen statement.
+ *
+ * The most important page on this site. Someone reads it because they are
+ * deciding whether they can safely eat this, or whether they can safely give
+ * it to a child. So it is written to be accurate rather than reassuring, and
+ * where the honest answer is "do not order this", it says that.
+ *
+ * The allergen list and the ingredient list are read out of the catalog, not
+ * typed here, so this page and the printed label cannot drift apart. The
+ * catalog schema refuses a product whose declared allergens do not cover its
+ * declared ingredients, which is the check underneath this page.
+ */
+import LegalLayout from "@components/LegalLayout.astro";
+import { business } from "@config/site";
+import { getProduct, listPublishedProducts } from "@lib/catalog-source";
+import { ALLERGENS } from "@lib/catalog";
+
+const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0] ?? null;
+
+/* The catalog is the source. ALLERGENS is the fallback, and it is the same
+   list in the same order, so a missing catalog cannot silently shorten it. */
+const allergens = product?.allergens ?? [...ALLERGENS];
+const ingredients = product?.ingredients ?? [];
+
+const TOC = [
+  { id: "contains", label: "What every tray contains" },
+  { id: "cross-contact", label: "One kitchen, one set of trays" },
+  { id: "ingredients", label: "The full ingredient list" },
+  { id: "training", label: "Hakop's training" },
+  { id: "severe", label: "If your allergy is severe" },
+  { id: "label", label: "What is on the label" },
+  { id: "changes", label: "If the list ever changes" },
+  { id: "report", label: "If someone has a reaction" },
+];
+---
+
+<LegalLayout
+  title="Allergens"
+  description="Every tray of gata contains wheat, milk, egg, almonds, walnuts and sesame. It is baked in a home kitchen that handles all six, so cross contact is possible and there is no allergen free option."
+  updated="2026-09-11"
+  lede="Everything baked here contains six of the major allergens, and it is made in a kitchen that handles all six. This page says exactly what is in it and what cannot be promised."
+  toc={TOC}
+>
+  <h2 id="contains">What every tray contains</h2>
+
+  <p class="contains">Contains: {allergens.join(", ")}.</p>
+
+  <p>
+    That is not a warning about one variety. It is the only thing baked here,
+    and every piece on every tray contains all of it. The sesame is scattered
+    over the top by hand, so it is visible in the photographs and it is on
+    every piece.
+  </p>
+
+  <h2 id="cross-contact">One kitchen, one set of trays</h2>
+
+  <p>
+    This is a home kitchen. One oven, one set of trays, one set of bowls and
+    one counter. Everything listed above is handled in that kitchen, on the
+    same surfaces, in the same week.
+  </p>
+
+  <div class="pullout">
+    <p>
+      <strong>This is not an allergen free facility and it cannot become
+      one.</strong> There is no separate line, no separate equipment and no
+      allergen free tray. Cross contact is possible on any piece.
+    </p>
+  </div>
+
+  <p>
+    A tray cannot be made without one of its ingredients. There is one recipe
+    and one product, so there is no walnut free version, no dairy free version
+    and no wheat free version to ask for. If somebody offers to make you one,
+    it is not this bakery.
+  </p>
+
+  <h2 id="ingredients">The full ingredient list</h2>
+
+  <p>
+    These are the ingredient names, in the order they are printed on the label,
+    which the law fixes as heaviest first. The list on this page and the list
+    on the label are the same list. If one changes, both change on the same
+    day.
+  </p>
+
+  {
+    ingredients.length > 0 ? (
+      <ul class="ingredient-list">
+        {ingredients.map((name) => (
+          <li>{name}</li>
+        ))}
+      </ul>
+    ) : (
+      <p class="unsettled">
+        <span class="unsettled-title">The ingredient list did not load.</span>{" "}
+        Read it on the label on the tray, or write to {business.email} and ask.
+        Do not assume this page is complete.
+      </p>
+    )
+  }
+
+  <p>
+    How much of each, and everything about how it is made, is not published.
+    Names are what the law requires and what an allergic customer needs. The
+    rest is the family's.
+  </p>
+
+  <h2 id="training">Hakop's training</h2>
+
+  <p>
+    {business.owner} is ServSafe Food Handler certified and ServSafe Allergens
+    certified. He is studying Culinary Arts Management at Cypress College,
+    where his coursework has included Sanitation and Safety, and he has six
+    years working in food service.
+  </p>
+
+  <p>
+    That training is the reason this page is specific rather than vague. It is
+    not a guarantee. A certificate does not turn a home kitchen into an
+    allergen free one, and nobody should read it as meaning the risk above has
+    been removed.
+  </p>
+
+  <h2 id="severe">If your allergy is severe</h2>
+
+  <p>
+    Plainly: if a trace of wheat, milk, egg, almond, walnut or sesame would
+    send you to hospital, do not order this. A home kitchen cannot rule out
+    cross contact, and this one is not going to claim otherwise in order to
+    make a sale.
+  </p>
+
+  <p>If your allergy is less severe than that, some things worth knowing.</p>
+
+  <ul>
+    <li>
+      Every ingredient is listed above and on the label. Nothing is left off
+      because it seemed minor.
+    </li>
+    <li>
+      A tray is not individually wrapped by the piece, so pieces touch each
+      other in the box.
+    </li>
+    <li>
+      If you are buying for someone else, show them this page or the label
+      before they eat any of it. Most people do not expect sesame.
+    </li>
+    <li>
+      If you are unsure about something, write to{" "}
+      <a href={`mailto:${business.email}?subject=Allergen%20question`}>
+        {business.email}
+      </a>{" "}
+      before you order. He will answer what he knows and he will not guess.
+    </li>
+  </ul>
+
+  <h2 id="label">What is on the label</h2>
+
+  <p>
+    Every tray carries the product name, the full ingredient list in label
+    order, the allergen line above, the business name, the county that
+    registered the kitchen, the registration number, and the statement that it
+    was made in a home kitchen that is not inspected by the Department of
+    Public Health.
+  </p>
+
+  <p>
+    The label also carries a code that opens a page with the same ingredient
+    and allergen text on it, so you can read it on a phone while holding the
+    box rather than squinting at small print.
+  </p>
+
+  <h2 id="changes">If the list ever changes</h2>
+
+  <p>
+    If an ingredient changes, this page, the product page and the printed label
+    change together, and the date at the top of this page changes with them.
+    Trays already in someone's kitchen carry their own label, and that label is
+    the authority for what is in that tray.
+  </p>
+
+  <h2 id="report">If someone has a reaction</h2>
+
+  <p>
+    In an emergency, call 911 first. Nothing on this page is worth a delay.
+  </p>
+
+  <p>
+    Once everybody is safe, write to{" "}
+    <a href={`mailto:${business.email}?subject=Allergic%20reaction`}>
+      {business.email}
+    </a>{" "}
+    and say what happened, what was eaten and when. {business.owner} wants to
+    know, he keeps the record, and it is how a mistake gets found rather than
+    repeated.
+  </p>
+</LegalLayout>
+
+<style>
+  /* The allergen line is the sentence somebody came here to read. It gets
+     the weight of a heading without being one, so the heading order stays
+     honest for anybody navigating by headings. */
+  .contains {
+    margin-top: 1.1rem;
+    padding: clamp(0.9rem, 3vw, 1.15rem);
+    background-color: var(--color-paper);
+    border: 2px solid var(--color-pomegranate);
+    border-radius: var(--radius-md);
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    line-height: var(--leading-snug);
+    font-weight: 600;
+    color: var(--color-crust);
+  }
+
+  .ingredient-list {
+    list-style: none;
+    margin-top: 1.1rem;
+    padding-left: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+    gap: 0 1.25rem;
+  }
+
+  .ingredient-list li {
+    padding-block: 0.45rem;
+    border-top: 1px solid var(--color-line);
+    margin-top: 0;
+  }
+</style>

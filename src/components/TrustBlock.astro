@@ -1,0 +1,212 @@
+---
+/**
+ * The block that decides whether a stranger buys food from a house.
+ *
+ * Two things a customer actually wants to know, side by side: that the kitchen
+ * is registered with the county and says so in the words the law requires, and
+ * that the person baking has been trained to handle food and to handle
+ * allergens. Both are verifiable. Neither is a promise.
+ *
+ * The disclosure itself is never typed here. `ComplianceLine` renders it from
+ * `src/config/site.ts`, so the number on this page and the number on the label
+ * cannot drift apart. See docs/BRIEF.md Section 4.
+ *
+ * Deliberately not three matching cards in a row. It is one panel, split by a
+ * hairline, with the credentials as a list that a person can read down.
+ */
+import ComplianceLine from "@components/ComplianceLine.astro";
+import { business, compliance } from "@config/site";
+import type { Product } from "@lib/catalog";
+
+interface Props {
+  /** Used only for the allergen line. Omit it and the line is left out. */
+  product?: Product;
+  title?: string;
+  id?: string;
+  class?: string;
+}
+
+const {
+  product,
+  title = "A home kitchen, and what stands behind it",
+  id = "trust",
+  class: className = "",
+} = Astro.props;
+
+/*
+  Hakop's real credentials, and only those. Every line here is a fact from the
+  brief. Nothing is rounded up, nothing is implied, and no certificate appears
+  that he does not hold. If a line cannot be sourced to Section A of
+  docs/BRIEF.md, it does not belong in this array.
+*/
+const credentials: ReadonlyArray<{ what: string; detail: string }> = [
+  {
+    what: "ServSafe Food Handler",
+    detail: "Certified. The same certificate a commercial kitchen asks for.",
+  },
+  {
+    what: "ServSafe Allergens",
+    detail:
+      "Certified. Allergen handling is a separate course, and he has taken it.",
+  },
+  {
+    what: "Culinary Arts Management, Cypress College",
+    detail:
+      "Hospitality Capstone in progress, Fall 2026. Coursework includes " +
+      "Baking I, Sanitation and Safety, Culinary Fundamentals, Garde Manger.",
+  },
+  {
+    what: "Six years in food service",
+    detail:
+      "On the line at Panera Bread since October 2023, across three cafes. " +
+      "Before that, school food service, on HACCP protocols and FIFO rotation.",
+  },
+];
+---
+
+<section class={`trust ${className}`.trim()} id={id} aria-labelledby={`${id}-title`}>
+  <h2 id={`${id}-title`} class="trust__title">{title}</h2>
+
+  <div class="trust__grid">
+    <div class="trust__col">
+      <h3 class="trust__sub">Where it is made</h3>
+
+      <ComplianceLine variant="inline" />
+
+      <p class="trust__note">
+        {business.name} sells inside California only: pickup, local delivery, and
+        shipping within the state. That is what a Class {compliance.operationClass}
+        {" "}cottage food operation is allowed to do, and it is the whole of it.
+        The county named above is the one that registers this kitchen and can be
+        asked about it.
+      </p>
+
+      {
+        product && (
+          <p class="trust__note">
+            Every tray carries the same allergens: {product.allergens.join(", ")}.
+            They are baked in a kitchen that handles all of them, so there is no
+            allergen free tray and the site will never claim one.{" "}
+            <a href="/legal/allergens">Read the allergen statement</a>.
+          </p>
+        )
+      }
+    </div>
+
+    <div class="trust__col trust__col--second">
+      <h3 class="trust__sub">Who bakes it</h3>
+
+      <ul class="trust__creds">
+        {
+          credentials.map((item) => (
+            <li class="trust__cred">
+              <span class="trust__seed" aria-hidden="true" />
+              <span>
+                <strong class="trust__what">{item.what}</strong>
+                <span class="trust__detail">{item.detail}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+
+      <p class="trust__note">
+        <a href="/story">More about Hakop</a>
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .trust {
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    padding: clamp(1.25rem, 4vw, 2.25rem);
+  }
+
+  .trust__title {
+    font-size: var(--text-2xl);
+    max-width: 22ch;
+  }
+
+  .trust__grid {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+    margin-top: clamp(1.25rem, 3vw, 1.75rem);
+  }
+
+  .trust__sub {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-crust-soft);
+    margin-bottom: 0.75rem;
+  }
+
+  .trust__note {
+    margin-top: 0.9rem;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-crust-soft);
+    max-width: 54ch;
+  }
+
+  .trust__creds {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0;
+  }
+
+  .trust__cred {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    padding-block: 0.7rem;
+    border-top: 1px solid var(--color-line);
+    font-size: var(--text-sm);
+    max-width: 54ch;
+  }
+
+  .trust__cred:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  /* A seed at rest, where a bullet or a tick icon would have gone. */
+  .trust__seed {
+    flex: none;
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-18deg);
+    position: relative;
+    top: -2px;
+  }
+
+  .trust__what {
+    display: block;
+    color: var(--color-crust);
+    font-weight: 700;
+  }
+
+  .trust__detail {
+    display: block;
+    color: var(--color-crust-soft);
+    margin-top: 0.15rem;
+  }
+
+  @media (min-width: 46rem) {
+    .trust__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .trust__col--second {
+      border-inline-start: 1px solid var(--color-line);
+      padding-inline-start: clamp(1.5rem, 4vw, 2.5rem);
+    }
+  }
+</style>

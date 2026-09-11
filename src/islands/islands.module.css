@@ -29,6 +29,17 @@
   /* Body copy stays under about 70 characters without a wrapper element. */
   max-width: var(--container-prose);
   color: var(--color-crust);
+  /*
+    Two of these islands are anchor targets: #waitlist, linked from half the
+    buttons on the site while the store is shut, and #fulfillment, which the
+    checkout gate links back to when an answer is missing. The masthead is
+    sticky and it wraps to two and three rows on a phone, where it stands
+    taller than the scroll-padding-top set in global.css. Without this the
+    heading of the section you just asked for lands behind the header and
+    the page looks like it did nothing. Same 6rem the legal contents list
+    and the product page already use.
+  */
+  scroll-margin-top: 6rem;
 }
 
 /* The cart is a table of goods, not a column of prose, so it gets the page. */
@@ -261,7 +272,22 @@
   border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-md);
   background: var(--color-paper);
-  overflow: hidden;
+  /*
+    Deliberately NOT overflow: hidden. The buttons inside stretch flush to
+    this box on all four sides, so an ancestor clip would cut off every one
+    of their focus rings and a keyboard user would see no focus at all on
+    the quantity control. The end buttons carry the rounding themselves.
+  */
+}
+
+.stepper > *:first-child {
+  border-start-start-radius: calc(var(--radius-md) - 1px);
+  border-end-start-radius: calc(var(--radius-md) - 1px);
+}
+
+.stepper > *:last-child {
+  border-start-end-radius: calc(var(--radius-md) - 1px);
+  border-end-end-radius: calc(var(--radius-md) - 1px);
 }
 
 .step {
@@ -516,22 +542,27 @@
 }
 
 .line {
-  display: grid;
-  /* Photo, description, then the money and the stepper. One column when the
-     row cannot hold them side by side. */
-  grid-template-columns: auto 1fr;
-  gap: 0.35rem 0.9rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
   padding: 1rem 0;
   border-bottom: 1px solid var(--color-line);
 }
 
 .lineMedia {
-  grid-row: span 2;
+  flex: none;
   width: 72px;
   height: 72px;
   border-radius: var(--radius-md);
   object-fit: cover;
   background: var(--color-sesame-deep);
+}
+
+.lineBody {
+  /* min-width zero is what lets a long product name wrap instead of
+     pushing the row wider than the viewport. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .lineName {
@@ -547,13 +578,11 @@
 }
 
 .lineFoot {
-  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 0.75rem;
-  margin-top: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 .lineTotal {
@@ -687,12 +716,6 @@
 .summaryValue {
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-
-.ref {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  letter-spacing: 0.02em;
 }
 
 /* ------------------------------------------------------------------ */

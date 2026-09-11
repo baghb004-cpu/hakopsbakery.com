@@ -11,12 +11,28 @@
   not: it lands near 2.4 to 1, which fails even the relaxed threshold for
   large text. Without a check like this, someone would eventually set a
   heading in it and nobody would notice until a customer could not read it.
+
+  There are two halves to this, and the second one is the important one.
+
+  The first half measures the pairs listed below. On its own that is still an
+  assumption: the list is written by hand, so a component that introduces a
+  new colour pairing is checked only if somebody remembered to come back here
+  and add it. A list that silently falls behind the code reads green and
+  proves nothing.
+
+  So the second half reads every stylesheet under src/ and pulls out the
+  colours actually declared: what is used as text, what is used as a ground,
+  what is used for a focus ring. Then it holds the list to that evidence. A
+  token used as text with no pair covering it fails. A decorative token used
+  as text or as a focus ring fails. A raw hex used as a colour is reported,
+  because a pair checked here is then not the pair being shipped.
 */
 
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { join, relative } from "node:path";
 
-const TOKENS = join(process.cwd(), "src", "styles", "tokens.css");
+const SRC = join(process.cwd(), "src");
+const TOKENS = join(SRC, "styles", "tokens.css");
 
 /* ------------------------------------------------------------------ */
 /* WCAG maths                                                          */
@@ -93,13 +109,27 @@ const PAIRS = [
   ["pomegranate", "sesame", "body", "accent text on the page"],
   ["pomegranate", "paper", "body", "accent text on a surface"],
 
+  // The hover colour. It is a text colour on every link on the site, so it
+  // is held to the text threshold and not waved through as a hover.
+  ["stitch-bright", "sesame", "body", "a link under the pointer, on the page"],
+  ["stitch-bright", "paper", "body", "a link under the pointer, on a surface"],
+
+  // The recessed ground. A selected option row and a disabled input both
+  // sit on it, and both carry text.
+  ["crust", "sesame-deep", "body", "primary text on the recessed ground"],
+  ["crust-soft", "sesame-deep", "body", "secondary text on the recessed ground"],
+
   // Inverted, as on the primary button and the skip link
   ["sesame", "crust", "body", "inverted text on the dark ink"],
 
-  // Status colours
-  ["good", "paper", "body", "success text"],
-  ["warn", "paper", "body", "warning text"],
-  ["bad", "paper", "body", "error text"],
+  // Status colours. On both grounds: an island sits on the page ground, and
+  // the same words inside a message block sit on paper.
+  ["good", "paper", "body", "success text on a surface"],
+  ["warn", "paper", "body", "warning text on a surface"],
+  ["bad", "paper", "body", "error text on a surface"],
+  ["good", "sesame", "body", "success text on the page"],
+  ["warn", "sesame", "body", "warning text on the page"],
+  ["bad", "sesame", "body", "error text on the page"],
 
   // Hairlines and borders, which are graphical objects
   ["line-strong", "paper", "ui", "input borders on a surface"],
@@ -164,6 +194,134 @@ for (const row of [...rows].sort((a, b) => a.r - b.r)) {
       `${DIM}need ${String(row.need).padEnd(3)}${RST} ` +
       `${row.fg} on ${row.bg}  ${DIM}${row.label}${RST} ${note}`,
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* What the source actually declares                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+  Walk src/ and read every colour declaration out of the stylesheets and the
+  scoped <style> blocks. This is deliberately textual rather than a real CSS
+  parse: it needs to know which tokens are named in which kind of property,
+  and for that a regex over the declaration is both enough and impossible to
+  get wrong in a way that quietly passes.
+*/
+
+const STYLE_FILES = /\.(css|astro|tsx)$/;
+
+async function* sourceFiles(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) yield* sourceFiles(full);
+    else if (STYLE_FILES.test(entry.name)) yield full;
+  }
+}
+
+/* Properties that put a colour behind text, on text, or around a control. */
+const TEXT_PROPS = /(?:^|[^-\w])(color|-webkit-text-fill-color|text-decoration-color)\s*:\s*([^;{}]+)/g;
+const GROUND_PROPS = /(?:^|[^-\w])(background|background-color)\s*:\s*([^;{}]+)/g;
+const RING_PROPS = /(?:^|[^-\w])(outline|outline-color|caret-color)\s*:\s*([^;{}]+)/g;
+
+/** Every --color-* token named in a declaration value. */
+function tokensIn(value) {
+  return [...value.matchAll(/var\(\s*--color-([\w-]+)/g)].map((m) => m[1]);
+}
+
+/** A literal hex used as a colour. Masks and gradients are not colour pairs. */
+function hexesIn(value) {
+  if (/mask|gradient/.test(value)) return [];
+  return [...value.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0]);
+}
+
+const usedAsText = new Map(); // token -> first "file:line"
+const usedAsGround = new Map();
+const usedAsRing = new Map();
+const rawHex = []; // { hex, where, prop }
+
+function record(into, name, where) {
+  if (!into.has(name)) into.set(name, where);
+}
+
+for await (const file of sourceFiles(SRC)) {
+  const rel = relative(process.cwd(), file);
+  if (rel.endsWith(join("styles", "tokens.css"))) continue; // the definitions themselves
+
+  const text = await readFile(file, "utf8");
+  /* Line numbers, so a failure points at somewhere real. */
+  const lineOf = (index) => text.slice(0, index).split("\n").length;
+
+  for (const [bucket, pattern] of [
+    [usedAsText, TEXT_PROPS],
+    [usedAsGround, GROUND_PROPS],
+    [usedAsRing, RING_PROPS],
+  ]) {
+    pattern.lastIndex = 0;
+    for (const match of text.matchAll(pattern)) {
+      const [, prop, value] = match;
+      const where = `${rel}:${lineOf(match.index ?? 0)}`;
+      for (const name of tokensIn(value)) record(bucket, name, where);
+      for (const hex of hexesIn(value)) rawHex.push({ hex, where, prop });
+    }
+  }
+}
+
+const groundList = [...usedAsGround.keys()].sort();
+console.log(
+  `\n${DIM}usage${RST}    ${usedAsText.size} token(s) carry text, ` +
+    `${usedAsGround.size} used as a ground ${DIM}(${groundList.join(", ")})${RST}`,
+);
+
+/*
+  Hold the pair list to what the source does. Every token used as a text
+  colour has to be covered by at least one pair, or the list has fallen
+  behind the code and the green tick above means nothing.
+*/
+const coveredAsForeground = new Set(PAIRS.map(([fg]) => fg));
+
+for (const [name, where] of [...usedAsText].sort()) {
+  if (!tokens.has(name)) continue; // not one of ours
+  if (DECORATIVE_ONLY.has(name)) {
+    failures.push(
+      `--color-${name} is set as a text colour at ${where}, and it is marked\n` +
+        `        decorative only. It measures ${ratio(tokens.get(name), tokens.get("sesame")).toFixed(2)} to 1 on the page ground.\n` +
+        "        Use --color-eggwash-ink, which is the same gold dark enough to read.",
+    );
+    continue;
+  }
+  if (!coveredAsForeground.has(name)) {
+    failures.push(
+      `--color-${name} is used as a text colour at ${where} but no pair in this\n` +
+        "        script covers it, so its contrast has never been measured.\n" +
+        "        Add it to PAIRS against the ground it actually sits on.",
+    );
+  }
+}
+
+/* A focus ring is a graphical object. A decorative token cannot be one. */
+for (const [name, where] of [...usedAsRing].sort()) {
+  if (DECORATIVE_ONLY.has(name)) {
+    failures.push(
+      `--color-${name} is used as a focus ring or caret at ${where}. A focus\n` +
+        "        indicator has to clear 3 to 1 against its ground and this one does not.",
+    );
+  }
+}
+
+/*
+  A raw hex is not automatically wrong, but it is a colour that this script
+  cannot trace back to a token, which means the pair being shipped is not the
+  pair checked above. Reported rather than failed, so it is a decision
+  somebody makes rather than one the build makes for them.
+*/
+if (rawHex.length > 0) {
+  console.log(
+    `${YEL}  warn${RST}  ${rawHex.length} colour declaration(s) use a literal hex rather than a token,\n` +
+      "        so the pair measured here is not the pair on the page:",
+  );
+  for (const { hex, where, prop } of rawHex) {
+    console.log(`        ${DIM}${where}${RST} ${prop}: ${hex}`);
+  }
 }
 
 /*

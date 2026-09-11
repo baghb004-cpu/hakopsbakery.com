@@ -21,6 +21,11 @@
  * browser. Secrets are fetched at the point of use and never logged.
  */
 
+import {
+  HOME_KITCHEN_STATEMENT,
+  DISCLOSURE_VERSION,
+  CONSENT_ACKNOWLEDGEMENT,
+} from "@config/compliance-text";
 import { DEFAULT_FULFILLMENT_CONFIG } from "@lib/zones";
 import type { FulfillmentConfig } from "@lib/zones";
 import type { BakeScheduleConfig, Weekday } from "@lib/bake-schedule";
@@ -71,24 +76,17 @@ export function envList(key: string, from: Env = source()): string[] | null {
 /* Compliance                                                          */
 /* ------------------------------------------------------------------ */
 
-/**
- * The exact wording required on the label and anywhere the operation
- * advertises. Byte identical to `compliance.homeKitchenStatement` in
- * `src/config/site.ts`, and a test proves it.
- */
-export const HOME_KITCHEN_STATEMENT =
-  "Made in a home kitchen that is not inspected by the Department of Public Health.";
-
-/** Byte identical to `compliance.disclosureVersion` in src/config/site.ts. */
-export const DISCLOSURE_VERSION = "2026-09-11.a";
-
-/**
- * What the customer ticks. Stored with every order, word for word, alongside
- * the version, so that six months from now it is possible to prove which
- * sentence a given customer actually agreed to.
- */
-export const CONSENT_ACKNOWLEDGEMENT =
-  "I have read the home kitchen statement above and I understand it.";
+/*
+  The fixed legal wording comes from the one module that both the pages and
+  these functions can import. It reads no environment of any kind, so it is
+  safe on both sides of the Vite and esbuild divide. Previously these three
+  constants were restated here and guarded only by a drift test.
+*/
+export {
+  HOME_KITCHEN_STATEMENT,
+  DISCLOSURE_VERSION,
+  CONSENT_ACKNOWLEDGEMENT,
+} from "@config/compliance-text";
 
 export interface ComplianceConfig {
   readonly registrationNumber: string | null;

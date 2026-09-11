@@ -1,0 +1,293 @@
+---
+/**
+ * The catalog.
+ *
+ * Written for a shop with many products and correct for a shop with one.
+ * Nothing on this page knows what gata is, how many trays are listed, or what
+ * they cost: it maps over whatever the catalog source returns and asks
+ * `isPurchasable` what it is allowed to offer. Adding a second pastry is a
+ * JSON file today and a form in Phase 2, and neither touches this file.
+ *
+ * The two states, and both of them are normal:
+ *
+ *   Open.   Cards carry a price and an order action.
+ *   Closed. The same cards carry the sizes, the lead time and the allergens,
+ *           with the waiting list where the price would be. No price is ever
+ *           presented as purchasable, because the figures in the catalog are
+ *           still placeholders and the county has not issued a registration
+ *           number. See `isPurchasable` in src/lib/catalog.ts.
+ *
+ * The card itself is `src/components/ProductCard.astro`, which owns the lean
+ * and the sesame seam. This page owns the outline and the copy around it.
+ */
+import Base from "@layouts/Base.astro";
+import ProductCard from "@components/ProductCard.astro";
+import SeedRule from "@components/SeedRule.astro";
+import Button from "@components/Button.astro";
+import ComplianceLine from "@components/ComplianceLine.astro";
+import EmailCapture from "@islands/EmailCapture";
+import { listPublishedProducts } from "@lib/catalog-source";
+import { isPurchasable, WEEKDAY_NAMES } from "@lib/catalog";
+import { business, commerce, storeOpen } from "@config/site";
+
+const products = await listPublishedProducts();
+const sellingSomething = products.some(isPurchasable);
+
+/*
+  Lead time is a property of a product, not of the shop, so the line below
+  states the range the catalog actually holds rather than a number typed into
+  a sentence. One product gives one number, and the copy reads the same way
+  either way.
+*/
+const leadTimes = [...new Set(products.map((p) => p.leadTimeDays))].sort((a, b) => a - b);
+const shortestLead = leadTimes[0] ?? commerce.cutoff.daysBefore;
+const longestLead = leadTimes[leadTimes.length - 1] ?? shortestLead;
+const leadLabel =
+  shortestLead === longestLead ? `${shortestLead}` : `${shortestLead} to ${longestLead}`;
+
+/* Tuesday, from configuration. Hakop is in class, so nothing is baked. */
+const closedDays = commerce.neverBakeWeekdays
+  .map((day) => WEEKDAY_NAMES[day] ?? String(day))
+  .join(" and ");
+
+const title = storeOpen ? "What is for sale" : "What will be for sale";
+const description = storeOpen
+  ? "Armenian gata, sold by the tray and baked to order in Cypress. Pickup, local delivery, and shipping inside California."
+  : "Armenian gata, sold by the tray and baked to order in Cypress. Ordering opens when the county registration arrives. Join the list to hear first.";
+---
+
+<Base title={title} description={description}>
+  <div class="page band--tight">
+    <header class="intro prose-col">
+      <h1>{title}</h1>
+
+      {
+        storeOpen ? (
+          <p class="intro__lede">
+            Everything here is baked to order and sold by the tray. Choose a
+            size, choose a bake day, then collect it in {business.city} or have
+            it brought to you. California only, which is as far as a cottage
+            food operation is allowed to sell.
+          </p>
+        ) : (
+          <p class="intro__lede">
+            Ordering is not open yet. The cottage food registration is still
+            with the county, so there is nothing to buy on this page today.
+            Everything below is real: the tray, the sizes, and the allergens.
+            The prices are the last thing to be set.
+          </p>
+        )
+      }
+
+      {
+        !storeOpen && (
+          <p class="intro__action">
+            <Button href="#waitlist" variant="secondary">
+              Tell me when ordering opens
+            </Button>
+          </p>
+        )
+      }
+    </header>
+  </div>
+
+  <SeedRule density="normal" />
+
+  <div class="page band--tight">
+    {
+      products.length === 0 ? (
+        /* A catalog with nothing published is a real state, not a crash. It
+           happens between retiring one pastry and publishing the next. */
+        <p class="empty prose-col">
+          Nothing is listed at the moment. Write to{" "}
+          <a href={`mailto:${business.email}`}>{business.email}</a> and Hakop
+          will tell you what is coming.
+        </p>
+      ) : (
+        <ul class={`catalog ${products.length === 1 ? "catalog--solo" : ""}`.trim()}>
+          {products.map((product, index) => (
+            <li class="catalog__item">
+              <ProductCard
+                product={product}
+                headingLevel={2}
+                eager={index === 0}
+                waitlistHref="#waitlist"
+              />
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+
+  <SeedRule density="sparse" />
+
+  <section class="page band--tight" aria-labelledby="how-it-works">
+    <h2 id="how-it-works">How an order works</h2>
+
+    <dl class="facts">
+      <div class="facts__row">
+        <dt>Baked to order</dt>
+        <dd>
+          Nothing sits on a shelf. A tray is baked for the day you pick, which
+          is why there is notice on every order rather than a cart that ships
+          this afternoon.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Notice needed</dt>
+        <dd>
+          <span class="tabular">{leadLabel}</span>
+          {longestLead === 1 ? " day" : " days"} between the order and the bake
+          day. {closedDays} is never a bake day: Hakop is in class.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Getting it</dt>
+        <dd>
+          Pickup in {business.city}, local delivery to the towns next to it, or
+          shipping anywhere in California. Cottage food law does not allow an
+          order to leave the state, so the checkout will not take one.
+        </dd>
+      </div>
+      <div class="facts__row">
+        <dt>Allergens</dt>
+        <dd>
+          Every tray is baked in one home kitchen, with wheat, milk, egg,
+          almonds, walnuts and sesame all in the room. The full statement is on
+          each product page and in the{" "}
+          <a href="/legal/allergens">allergen statement</a>.
+        </dd>
+      </div>
+    </dl>
+
+    <div class="facts__compliance">
+      <ComplianceLine variant="inline" />
+    </div>
+  </section>
+
+  {
+    /*
+      The waiting list. Shown while the store is closed, and also while it is
+      open but nothing in the catalog can actually be sold, which is the state
+      a shop lands in when every price is still a placeholder.
+    */
+    !sellingSomething && (
+      <>
+        <SeedRule density="dense" />
+        <section class="page band--tight">
+          <div class="waitlist">
+            <EmailCapture
+              client:visible
+              source="shop"
+              id="waitlist"
+              headingLevel={2}
+              contactEmail={business.email}
+              privacyHref="/legal/privacy"
+            />
+          </div>
+        </section>
+      </>
+    )
+  }
+</Base>
+
+<style>
+  .intro__lede {
+    margin-top: 0.9rem;
+    font-size: var(--text-lg);
+    color: var(--color-crust-soft);
+  }
+
+  .intro__action {
+    margin-top: 1.25rem;
+  }
+
+  .empty {
+    color: var(--color-crust-soft);
+  }
+
+  /*
+    One product or twelve, the same grid. `auto-fit` with a minimum wide
+    enough to hold a photograph and a price row means a single card does not
+    stretch across a desk monitor and look like a mistake, and a dozen wrap
+    into rows without a breakpoint per count.
+  */
+  .catalog {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: clamp(1.25rem, 3vw, 2rem);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  }
+
+  /*
+    With one product the grid would hand it the whole page, which reads as a
+    banner rather than as a card. Hold it to a column and let the page breathe
+    around it.
+  */
+  .catalog--solo {
+    grid-template-columns: minmax(0, 28rem);
+  }
+
+  .catalog__item {
+    display: flex;
+  }
+
+  .catalog__item > :global(.card) {
+    flex: 1 1 auto;
+  }
+
+  .facts {
+    margin: 1.5rem 0 0;
+    display: grid;
+    max-width: 54rem;
+  }
+
+  .facts__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding-block: 0.9rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .facts__row:last-child {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .facts dt {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--color-crust);
+  }
+
+  .facts dd {
+    margin: 0;
+    color: var(--color-crust-soft);
+    /* Body copy stays inside 80 characters at every width. */
+    max-width: 66ch;
+  }
+
+  .facts__compliance {
+    margin-top: 1.75rem;
+  }
+
+  .waitlist {
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-top: 3px solid var(--color-eggwash);
+    border-radius: var(--radius-md);
+    padding: clamp(1.1rem, 4vw, 1.75rem);
+    max-width: 44rem;
+  }
+
+  /* Two columns once there is room for a label beside its answer. */
+  @media (min-width: 40rem) {
+    .facts__row {
+      grid-template-columns: 12rem minmax(0, 1fr);
+      gap: 0.75rem 1.5rem;
+    }
+  }
+</style>
