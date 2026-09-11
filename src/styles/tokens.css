@@ -10,6 +10,7 @@
 @theme {
   /* ---- Colour -------------------------------------------------------- */
   --color-crust: #3a2317; /* primary ink, the deep baked edge */
+  --color-crust-deep: #2a170e; /* the primary button, pressed */
   --color-crust-soft: #5c4132; /* secondary ink, still AA on sesame */
   --color-eggwash: #c98a2e; /* gloss. Decorative only, fails AA on sesame */
   --color-eggwash-ink: #8a5612; /* the same gold, dark enough to carry text */
@@ -19,6 +20,8 @@
   --color-stitch: #1b4b5a; /* links and focus rings */
   --color-stitch-bright: #2b6f84; /* hover, and links on dark grounds */
   --color-paper: #fbf8f1; /* raised surface */
+  --color-paper-lift: #ffffff; /* the one step above paper, on hover */
+  --color-on-accent: #ffffff; /* text sitting on a saturated accent */
   /* Two weights of line, and the difference is a WCAG one rather than a
      stylistic one. A decorative rule separating two blocks carries no
      contrast requirement because losing it costs a reader nothing. The border
@@ -28,10 +31,29 @@
   --color-line: #d6c7a8; /* decorative hairlines and rules, no text */
   --color-line-strong: #8f7a4f; /* input borders. 3.34:1 on the page ground */
 
-  /* Status. Derived from the palette rather than bolted on from a UI kit. */
-  --color-good: #2f5d3a;
-  --color-warn: #8a5612;
-  --color-bad: #8e1b2e;
+  /*
+     Status. Deliberately NOT aliased to the brand tokens.
+
+     These three started life as copies of eggwash-ink and pomegranate, which
+     looked tidy and was a real accessibility defect. Under deuteranopia, the
+     most common colour vision deficiency and one that affects roughly one man
+     in sixteen, the old success green and error red simulated to #57523c and
+     #5a522b: an RGB separation of 17, which is to say the same colour.
+
+     A contrast checker passes that happily, because contrast measures each
+     colour against the BACKGROUND and never against the other colours it has
+     to be told apart from. scripts/check-contrast.mjs now checks both.
+
+     Worth being clear about the limit: on a warm light ground, AA forces every
+     status colour dark, and dark green against dark red is precisely what
+     deuteranopia collapses. These values are the best separation available
+     while all three still clear 4.5:1 on both grounds, and they lift the worst
+     case pair from 17 to 65. That is an improvement, not a solution. The
+     actual fix is WCAG 1.4.1: status must never be carried by colour alone.
+     Every one of these is paired with a word or a mark in the component. */
+  --color-good: #397247; /* 4.61:1 on the page ground */
+  --color-warn: #6b430e; /* 6.95:1 */
+  --color-bad: #400c15; /* 13.20:1 */
 
   /* ---- Type ---------------------------------------------------------- */
   --font-body: "Noto Sans Armenian", "Segoe UI", system-ui, -apple-system,

@@ -180,7 +180,7 @@
     padding-inline: 0.35rem;
     border-radius: 0.7rem;
     background: var(--color-pomegranate);
-    color: #fff;
+    color: var(--color-on-accent);
     font-size: var(--text-xs);
     font-weight: 700;
     line-height: 1;

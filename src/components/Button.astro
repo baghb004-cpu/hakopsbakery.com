@@ -94,8 +94,8 @@ const classes = `btn btn--${variant} btn--${size} ${className}`.trim();
   }
 
   .btn--primary:hover:not([disabled]):not([aria-disabled="true"]) {
-    background: #2a170e;
-    border-color: #2a170e;
+    background: var(--color-crust-deep);
+    border-color: var(--color-crust-deep);
   }
 
   .btn--secondary {
@@ -106,7 +106,7 @@ const classes = `btn btn--${variant} btn--${size} ${className}`.trim();
 
   .btn--secondary:hover:not([disabled]):not([aria-disabled="true"]) {
     border-color: var(--color-crust);
-    background: #fff;
+    background: var(--color-paper-lift);
   }
 
   .btn--quiet {

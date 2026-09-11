@@ -136,7 +136,11 @@ const PAIRS = [
   ["line-strong", "sesame", "ui", "input borders on the page"],
 
   // The cart badge
-  ["paper", "pomegranate", "body", "the count on the cart badge"],
+  ["on-accent", "pomegranate", "body", "the count on the cart badge"],
+
+  // Button states, which are real pairs on the page and were literals before
+  ["sesame", "crust-deep", "body", "the primary button, pressed"],
+  ["crust", "paper-lift", "body", "the secondary button, hovered"],
 ];
 
 /*
@@ -321,6 +325,123 @@ if (rawHex.length > 0) {
   );
   for (const { hex, where, prop } of rawHex) {
     console.log(`        ${DIM}${where}${RST} ${prop}: ${hex}`);
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Colour vision deficiency                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+  Contrast is not the whole of colour accessibility, and treating it as though
+  it is produces a specific, common bug.
+
+  A contrast ratio compares a colour to its BACKGROUND. It says nothing about
+  whether two foreground colours can be told apart from EACH OTHER. So a
+  success green and an error red can both score comfortably above 4.5 to 1 on
+  the same page and still be the same colour to a reader with deuteranomaly.
+  That is exactly what happened here: the original tokens simulated to #57523c
+  and #5a522b, a separation of 17 out of a possible 441.
+
+  These matrices are the Machado, Oliveira and Fernandes model at full
+  severity. They are an approximation, not a medical instrument, but they are
+  the standard one and they are more than good enough to catch a collision of
+  this size.
+*/
+const CVD_MATRICES = {
+  protanopia: [
+    [0.152286, 1.052583, -0.204868],
+    [0.114503, 0.786281, 0.099216],
+    [-0.003882, -0.048116, 1.051998],
+  ],
+  deuteranopia: [
+    [0.367322, 0.860646, -0.227968],
+    [0.280085, 0.672501, 0.047413],
+    [-0.01182, 0.04294, 0.968881],
+  ],
+  tritanopia: [
+    [1.255528, -0.076749, -0.178779],
+    [-0.078411, 0.930809, 0.147602],
+    [0.004733, 0.691367, 0.3039],
+  ],
+};
+
+const toLinear = (v) => {
+  const s = v / 255;
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+};
+const toSrgb = (v) => {
+  const c = Math.max(0, Math.min(1, v));
+  return Math.round((c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055) * 255);
+};
+
+function simulate(hex, kind) {
+  const lin = hexToRgb(hex).map(toLinear);
+  const m = CVD_MATRICES[kind];
+  return m.map((row) => toSrgb(row[0] * lin[0] + row[1] * lin[1] + row[2] * lin[2]));
+}
+
+/** Straight RGB distance. Crude, but the failures it catches are not subtle. */
+function separation(a, b) {
+  return Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) ** 2, 0));
+}
+
+/*
+  Sets of colours whose whole job is to be told apart from one another.
+  A minimum of 50 is the floor here: the collision this check was written for
+  measured 17, and the current tokens manage 65.
+*/
+const MUST_DIFFER = [
+  {
+    id: "status",
+    tokens: ["good", "warn", "bad"],
+    min: 50,
+    why: "success, warning and error have to be distinguishable from each other",
+  },
+];
+
+console.log();
+let cvdFailed = false;
+
+for (const group of MUST_DIFFER) {
+  const hexes = group.tokens.map((t) => tokens.get(t));
+  if (hexes.some((h) => !h)) continue;
+
+  const visions = ["normal", ...Object.keys(CVD_MATRICES)];
+  let worst = { sep: Infinity };
+
+  for (const vision of visions) {
+    const seen = hexes.map((h) => (vision === "normal" ? hexToRgb(h) : simulate(h, vision)));
+    for (let i = 0; i < seen.length; i += 1) {
+      for (let j = i + 1; j < seen.length; j += 1) {
+        const sep = separation(seen[i], seen[j]);
+        if (sep < worst.sep) {
+          worst = { sep, vision, a: group.tokens[i], b: group.tokens[j] };
+        }
+      }
+    }
+  }
+
+  const pass = worst.sep >= group.min;
+  if (!pass) cvdFailed = true;
+
+  console.log(
+    `  ${pass ? `${GRN} ok ${RST}` : `${RED}FAIL${RST}`} ` +
+      `${worst.sep.toFixed(0).padStart(5)}      ${DIM}min ${group.min}${RST}  ` +
+      `${group.id}: worst pair is ${worst.a} against ${worst.b} under ${worst.vision}`,
+  );
+
+  if (!pass) {
+    failures.push(
+      [
+        `${group.id}: ${worst.a} and ${worst.b} are only ${worst.sep.toFixed(0)} apart under`,
+        `        ${worst.vision}, below the ${group.min} floor. ${group.why}.`,
+        "        Contrast alone will not catch this. Separate them in LIGHTNESS,",
+        "        not only in hue, and make sure the component carries a word or",
+        "        a mark as well as the colour. WCAG 1.4.1: never colour alone.",
+      ].join("\n"),
+    );
   }
 }
 
