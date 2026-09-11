@@ -395,7 +395,7 @@
 
 .actionQuiet {
   background: transparent;
-  color: var(--color-stitch);
+  color: var(--color-link);
   border-color: transparent;
   padding-inline: 0.4rem;
   font-weight: 500;
@@ -728,6 +728,15 @@
   than as something broken.
 */
 .closed {
+  /*
+    This block is a heading and a paragraph, so it keeps the prose measure
+    even where the island around it has given that up. In the cart the shell
+    carries islandWide, which exists for the table of saved lines below and
+    not for this, and the sentence here ran to 131 characters on one line at
+    1280 under a 608px paragraph. The three other islands that use .closed
+    are already inside a capped .island, so this changes nothing for them.
+  */
+  max-width: var(--container-prose);
   padding: 1.1rem 1.2rem;
   background: var(--color-paper);
   border: 1px solid var(--color-line);

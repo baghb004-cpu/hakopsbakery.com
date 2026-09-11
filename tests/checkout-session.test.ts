@@ -318,6 +318,57 @@ describe("the session Stripe is asked for", () => {
     expect((await readBody(first))["sessionId"]).toBe((await readBody(second))["sessionId"]);
   });
 
+  it("still opens a checkout when the customer comes back and tries again", async () => {
+    /*
+      The session expiry Stripe is sent has to be at least thirty minutes
+      ahead of the moment the session is created, so it necessarily moves
+      between one attempt and the next. A key tied to the attempt alone would
+      be reused with different parameters, Stripe would refuse it, and the
+      customer would be unable to pay for as long as Stripe remembers the
+      key. The capacity must still be claimed once, and must still be held.
+    */
+    const bench = harness();
+    let clock = FRIDAY_MORNING.getTime();
+    const bench2 = deps({
+      store: bench.store,
+      stripe: bench.stripe,
+      rateLimiter: bench.rateLimiter,
+      logger: bench.logger,
+      now: () => new Date(clock),
+    });
+
+    const first = await handleCreateCheckoutSession(post(order({ requestId: "attempt-0003" })), bench2);
+    expect(first.status).toBe(200);
+
+    clock += 90_000;
+    const second = await handleCreateCheckoutSession(post(order({ requestId: "attempt-0003" })), bench2);
+    expect(second.status).toBe(200);
+    expect(typeof (await readBody(second))["url"]).toBe("string");
+
+    /* One hold, and it is still there rather than released by the retry. */
+    expect(bench.store.state.holds.size).toBe(1);
+    const hold = [...bench.store.state.holds.values()][0];
+    expect(hold).toBeDefined();
+    /* The hold outlives the session the retry created, or somebody could pay
+       for capacity that has already been handed to the next customer. */
+    expect(hold?.expiresAt).toBeGreaterThanOrEqual(clock + 30 * 60_000);
+  });
+
+  it("keeps the capacity when Stripe refuses on the idempotency key", async () => {
+    const bench = deps();
+    const stripe = bench.stripe as ReturnType<typeof harness>["stripe"];
+    const conflict = new Error("same key, other parameters") as Error & { type: string };
+    conflict.type = "StripeIdempotencyError";
+    stripe.failNextSessionWith(conflict);
+
+    const response = await handleCreateCheckoutSession(post(order({ requestId: "attempt-0004" })), bench);
+
+    expect(response.status).toBe(500);
+    /* A session for this attempt already exists at Stripe and is payable.
+       Releasing its capacity here would sell the bake day twice. */
+    expect((bench.store as ReturnType<typeof harness>["store"]).state.holds.size).toBe(1);
+  });
+
   it("does not let a retry claim the capacity twice", async () => {
     const bench = deps();
     await handleCreateCheckoutSession(post(order({ requestId: "attempt-0002" })), bench);

@@ -83,13 +83,29 @@
     # Nothing else is loaded by this site: the fonts are self hosted and the
     # photography is built into the deploy.
     #
-    # 'unsafe-inline' is present in script-src for one reason: the header cart
-    # badge is about four hundred bytes of inline script rather than a React
-    # island that would put 215 KB on every page (docs/DECISIONS.md D-006).
-    # A static host cannot issue a per request nonce, so the way to remove this
-    # is to hash the inline scripts at build time and list the hashes here.
-    # Worth doing. Until then, note that the site renders no user supplied HTML,
-    # which is what makes the risk small rather than theoretical.
+    # 'unsafe-inline' is present in script-src, and while it is there script-src
+    # is not a defence. Two things need it: the header cart badge, which is
+    # about four hundred bytes of inline script rather than a React island that
+    # would put 215 KB on every page (docs/DECISIONS.md D-006), and Astro's own
+    # island bootstrap, which is emitted inline on every page that mounts one.
+    #
+    # HASHING THE INLINE SCRIPTS DOES NOT WORK HERE. It was measured, in
+    # Chromium, against the real build. astro.config.mjs sets
+    # experimental.clientPrerender, so the prefetch runtime injects a
+    # <script type="speculationrules"> whose body contains the URL being
+    # prefetched. That body is different for every link, so no build time hash
+    # can cover it, and the moment any hash appears in script-src the browser
+    # stops honouring both 'unsafe-inline' and 'inline-speculation-rules'. The
+    # measured result of a hash only policy is "Refused to apply inline
+    # speculation rules" on every hover and no prefetch of any kind, because
+    # the <link rel=prefetch> fallback only runs where speculation rules are
+    # unsupported.
+    #
+    # So removing 'unsafe-inline' costs either prefetch or clientPrerender. The
+    # honest order of work is: turn off experimental.clientPrerender, move the
+    # cart badge and the island bootstrap into files served from 'self', then
+    # drop the keyword. Until that is done, what keeps the risk small is that
+    # the site renders no user supplied HTML at all.
     #
     # style-src keeps 'unsafe-inline' because Astro inlines critical CSS.
     Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com; script-src 'self' 'unsafe-inline' https://js.stripe.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.stripe.com; font-src 'self'; connect-src 'self' https://api.stripe.com https://cloudflareinsights.com https://static.cloudflareinsights.com; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests"

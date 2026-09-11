@@ -3,8 +3,27 @@
   Everything else in this codebase reads from here. If a value is written
   directly into a component, it is a bug.
 
-  Palette is drawn from the product itself: the baked edge, the egg wash gloss,
-  the sesame, the pomegranate, and the blue of the family cross stitch work.
+  The palette is sampled from the product, not chosen to look Armenian.
+
+  Every colour below except one was measured out of Hakop's own photographs:
+  the baked edge, the egg wash gloss, the sesame, the browned spots on the
+  parchment. Sampling those photographs settled two arguments.
+
+  The first: there was a pomegranate in here. It is a symbol of Armenia in
+  general and it has nothing whatever to do with gata. Hakop said so and he
+  was right. The brief's own test is that a motif must be specific to this
+  bakery rather than to bakeries, or countries, in general, and the pomegranate
+  fails it. It is gone, and nothing replaced it, because the honest answer was
+  fewer colours rather than a different one. Its work was reassigned to tokens
+  that already meant something: allergen notices now use the error colour,
+  because an allergen notice is a warning, and draft markers use the warning
+  colour, because a draft is provisional.
+
+  The second: the product has no cool colour in it at all. Out of several
+  hundred thousand sampled pixels, 782 were not warm. The pan is neutral grey.
+  So --color-link below is the one colour here that is not drawn from the
+  photographs, and rather than invent a story about family needlework to
+  justify it, the comment beside it says plainly what it is for.
 */
 
 @theme {
@@ -16,12 +35,10 @@
   --color-eggwash-ink: #8a5612; /* the same gold, dark enough to carry text */
   --color-sesame: #efe6d2; /* page ground */
   --color-sesame-deep: #e3d7be; /* recessed ground, wells and insets */
-  --color-pomegranate: #8e1b2e; /* one saturated accent, used rarely */
-  --color-stitch: #1b4b5a; /* links and focus rings */
-  --color-stitch-bright: #2b6f84; /* hover, and links on dark grounds */
+  --color-link: #1b4b5a; /* links and focus rings */
+  --color-link-bright: #2b6f84; /* the same, under the pointer */
   --color-paper: #fbf8f1; /* raised surface */
   --color-paper-lift: #ffffff; /* the one step above paper, on hover */
-  --color-on-accent: #ffffff; /* text sitting on a saturated accent */
   /* Two weights of line, and the difference is a WCAG one rather than a
      stylistic one. A decorative rule separating two blocks carries no
      contrast requirement because losing it costs a reader nothing. The border

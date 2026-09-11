@@ -90,12 +90,16 @@ const pending = !complianceIsComplete;
     color: var(--color-crust);
   }
 
-  /* Readable, never decorative. The smallest this is allowed to get. */
+  /* Readable, never decorative. The smallest this is allowed to get.
+     The cap is in ch, not rem, because the measure has to hold at this
+     font size. 46rem at text-sm ran to 104 characters a line, well past the
+     80 the QA checklist sets, and this is the one paragraph on the site that
+     every visitor is required to be able to read. */
   .disclosure--footer,
   .disclosure--inline {
     font-size: var(--text-sm);
     line-height: 1.55;
-    max-width: 46rem;
+    max-width: 62ch;
   }
 
   .disclosure--inline {

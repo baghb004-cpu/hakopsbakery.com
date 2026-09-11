@@ -79,6 +79,31 @@ for await (const file of htmlFiles(DIST)) {
     warn("viewport-fit", "viewport-fit=cover is absent, so env(safe-area-inset-*) resolves to zero on a notched iPhone.");
   }
 
+  /*
+    ---- The label QR route ships no JavaScript ----
+
+    This page is printed on the tray and scanned in a kitchen, on cellular, by
+    somebody who wants to know right now whether there is a nut in it. Its spec
+    is zero script, and Astro's prefetch runtime lands on every page by default,
+    so src/integrations/zero-js-routes.mjs takes it back off this route. If that
+    integration is removed, misconfigured, or defeated by an Astro change, the
+    page quietly grows a script again and nobody notices. This is the assertion
+    that makes it loud.
+  */
+  if (rel.startsWith("p/") || rel.startsWith("p\\")) {
+    const scripts = root
+      .querySelectorAll("script")
+      .filter((s) => s.getAttribute("src"));
+    if (scripts.length > 0) {
+      fail(
+        "label-zero-js",
+        `The label QR page loads ${scripts.length} script file(s) ` +
+          `(${scripts.map((s) => s.getAttribute("src")).join(", ")}). ` +
+          "This route is specified as zero JavaScript.",
+      );
+    }
+  }
+
   /* ---- Landmarks ---- */
 
   if (!root.querySelector("main")) fail("landmark-main", "No main element.");

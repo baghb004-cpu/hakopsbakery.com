@@ -51,10 +51,33 @@ const TALL = { width: 700, height: 950 };
 const wideWidths = [430, 645, 860];
 const tallWidths = [350, 525, 700];
 
+/*
+  Quality is set per format, not once for both, because the same number does
+  not mean the same thing to two encoders.
+
+  Astro maps quality "high" to the number 80 and hands it straight to sharp.
+  For JPEG, 80 is the usual good setting. For AVIF, 80 is far up the curve:
+  measured on these two photographs it produced files 12 to 20 percent LARGER
+  than the JPEG fallback beside them, so every browser that supports AVIF, and
+  that is now nearly all of them, downloaded the biggest file in the picture
+  element. On the tall crop that is the home page LCP resource: 181 KB of AVIF
+  against 160 KB of JPEG.
+
+  AVIF 65 measures 36 percent smaller than AVIF 80 and still reconstructs the
+  photograph more faithfully than the JPEG this same element already serves as
+  its fallback (36.2 dB against 35.5 dB PSNR on the tall crop, and the same
+  ordering at every width). So this is strictly less data for strictly better
+  pictures than the fallback path, not a quality cut.
+
+  If these photographs are ever replaced, re measure before changing this
+  number. It is a property of these images, not a universal constant.
+*/
+const AVIF_QUALITY = 65;
+
 const [wideAvif, wideJpeg, tallAvif, tallJpeg] = await Promise.all([
-  getImage({ src: wideSource, widths: wideWidths, format: "avif", quality: "high" }),
+  getImage({ src: wideSource, widths: wideWidths, format: "avif", quality: AVIF_QUALITY }),
   getImage({ src: wideSource, widths: wideWidths, format: "jpeg", quality: "high" }),
-  getImage({ src: tallSource, widths: tallWidths, format: "avif", quality: "high" }),
+  getImage({ src: tallSource, widths: tallWidths, format: "avif", quality: AVIF_QUALITY }),
   getImage({ src: tallSource, widths: tallWidths, format: "jpeg", quality: "high" }),
 ]);
 

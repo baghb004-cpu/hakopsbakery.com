@@ -273,11 +273,25 @@ export function fakeStripe(): FakeStripe {
       }
       /*
         Stripe returns the original object when a create is repeated with the
-        same idempotency key. Copying that here is what makes the retry
-        behaviour testable at all.
+        same idempotency key AND the same parameters. A key reused with
+        different parameters is an error, not a replay, and a fake that
+        replayed it anyway would hide the case where a retry of a checkout
+        cannot get past Stripe. Both halves are copied here.
       */
       const seen = sessions.find((entry) => entry.idempotencyKey === options.idempotencyKey);
-      if (seen !== undefined) return seen.result;
+      if (seen !== undefined) {
+        if (JSON.stringify(seen.params) !== JSON.stringify(params)) {
+          const error = new Error(
+            "Keys for idempotent requests can only be used with the same parameters " +
+              "they were first used with.",
+          ) as Error & { type: string; rawType: string; statusCode: number };
+          error.type = "StripeIdempotencyError";
+          error.rawType = "idempotency_error";
+          error.statusCode = 400;
+          throw error;
+        }
+        return seen.result;
+      }
 
       const result: CreatedSession = {
         id: `cs_test_${sessions.length + 1}`,

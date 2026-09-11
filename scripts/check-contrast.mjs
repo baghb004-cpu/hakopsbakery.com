@@ -95,10 +95,10 @@ const PAIRS = [
   ["crust-soft", "paper", "body", "secondary text on a surface"],
 
   // Links and focus
-  ["stitch", "sesame", "body", "links on the page"],
-  ["stitch", "paper", "body", "links on a surface"],
-  ["stitch", "sesame", "ui", "focus ring against the page"],
-  ["stitch", "paper", "ui", "focus ring against a surface"],
+  ["link", "sesame", "body", "links on the page"],
+  ["link", "paper", "body", "links on a surface"],
+  ["link", "sesame", "ui", "focus ring against the page"],
+  ["link", "paper", "ui", "focus ring against a surface"],
 
   // The gold, in its two forms
   ["eggwash-ink", "sesame", "body", "gold text on the page"],
@@ -106,13 +106,11 @@ const PAIRS = [
   ["eggwash", "sesame", "decorative", "the gloss, decorative only"],
 
   // The single saturated accent
-  ["pomegranate", "sesame", "body", "accent text on the page"],
-  ["pomegranate", "paper", "body", "accent text on a surface"],
 
   // The hover colour. It is a text colour on every link on the site, so it
   // is held to the text threshold and not waved through as a hover.
-  ["stitch-bright", "sesame", "body", "a link under the pointer, on the page"],
-  ["stitch-bright", "paper", "body", "a link under the pointer, on a surface"],
+  ["link-bright", "sesame", "body", "a link under the pointer, on the page"],
+  ["link-bright", "paper", "body", "a link under the pointer, on a surface"],
 
   // The recessed ground. A selected option row and a disabled input both
   // sit on it, and both carry text.
@@ -136,7 +134,7 @@ const PAIRS = [
   ["line-strong", "sesame", "ui", "input borders on the page"],
 
   // The cart badge
-  ["on-accent", "pomegranate", "body", "the count on the cart badge"],
+  ["sesame", "crust", "body", "the count on the cart badge, now ink rather than a dot"],
 
   // Button states, which are real pairs on the page and were literals before
   ["sesame", "crust-deep", "body", "the primary button, pressed"],

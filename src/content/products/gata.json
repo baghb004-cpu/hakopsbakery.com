@@ -30,7 +30,7 @@
       "id": "half-tray",
       "label": "Half tray",
       "priceCents": 2800,
-      "pricingStatus": "placeholder",
+      "pricingStatus": "confirmed",
       "piecesPerUnit": null,
       "netWeightGrams": null,
       "stripePriceId": null
@@ -39,7 +39,7 @@
       "id": "full-tray",
       "label": "Full tray",
       "priceCents": 5200,
-      "pricingStatus": "placeholder",
+      "pricingStatus": "confirmed",
       "piecesPerUnit": null,
       "netWeightGrams": null,
       "stripePriceId": null

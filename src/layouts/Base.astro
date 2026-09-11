@@ -33,6 +33,34 @@ const {
   bodyClass = "",
 } = Astro.props;
 
+/*
+  Development only. Outlines any element wider than the viewport so a sideways
+  scroll is impossible to miss while building. Held as a string for the same
+  reason as the cart badge script in SiteHeader.astro: script children written
+  as a template literal inside an expression are emitted verbatim, braces and
+  backticks included, and the browser then runs nothing.
+*/
+const overflowDebugScript = `
+(function () {
+  var check = function () {
+    var w = document.documentElement.clientWidth;
+    var bad = [];
+    document.querySelectorAll('body *').forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.width > w + 1 || r.right > w + 1 || r.left < -1) bad.push(el);
+    });
+    if (bad.length) {
+      console.warn('[layout] ' + bad.length + ' element(s) overflow the viewport:', bad);
+      document.documentElement.dataset.overflowDebug = 'on';
+    } else {
+      delete document.documentElement.dataset.overflowDebug;
+    }
+  };
+  addEventListener('load', check);
+  addEventListener('resize', check);
+})();
+`;
+
 const canonical = new URL(Astro.url.pathname, site.url).href;
 const ogImage = new URL(image, site.url).href;
 
@@ -62,6 +90,15 @@ const structuredData = {
   servesCuisine: "Armenian",
   ...(business.email ? { email: business.email } : {}),
 };
+
+/*
+  JSON.stringify does not escape "<", so a configured value containing
+  "</script>" would close this block early and everything after it would be
+  parsed as markup. The values come from the Netlify environment rather than
+  from a visitor, so this is a guard rather than a live hole, but it costs one
+  replace and it removes the only way HTML can be written into this page.
+*/
+const structuredDataJson = JSON.stringify(structuredData).replace(/</g, "\\u003c");
 ---
 
 <!doctype html>
@@ -86,8 +123,12 @@ const structuredData = {
       ))
     }
 
-    <meta name="theme-color" content="#efe6d2" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#3a2317" media="(prefers-color-scheme: dark)" />
+    <!-- One value, because there is one rendering. The site declares
+         color-scheme light and has no dark palette, so the page ground is
+         sesame whatever the operating system is set to. Handing a phone a
+         dark brown bar to sit above a cream page just puts a seam across the
+         top of the screen. -->
+    <meta name="theme-color" content="#efe6d2" />
     <meta name="color-scheme" content="light" />
 
     <meta property="og:type" content="website" />
@@ -106,7 +147,7 @@ const structuredData = {
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="sitemap" href="/sitemap-index.xml" />
 
-    {primary && <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />}
+    {primary && <script type="application/ld+json" set:html={structuredDataJson} />}
 
     {
       /*
@@ -137,34 +178,10 @@ const structuredData = {
 
     {
       /*
-        Development only. Outlines any element wider than the viewport so a
-        sideways scroll is impossible to miss while building. Stripped from
-        production by the import.meta.env.DEV guard, which Vite folds away.
+        Development only. Stripped from production by the import.meta.env.DEV
+        guard, which Vite folds away. The script itself is in the frontmatter.
       */
-      import.meta.env.DEV && (
-        <script is:inline>
-          {`
-            (function () {
-              var check = function () {
-                var w = document.documentElement.clientWidth;
-                var bad = [];
-                document.querySelectorAll('body *').forEach(function (el) {
-                  var r = el.getBoundingClientRect();
-                  if (r.width > w + 1 || r.right > w + 1 || r.left < -1) bad.push(el);
-                });
-                if (bad.length) {
-                  console.warn('[layout] ' + bad.length + ' element(s) overflow the viewport:', bad);
-                  document.documentElement.dataset.overflowDebug = 'on';
-                } else {
-                  delete document.documentElement.dataset.overflowDebug;
-                }
-              };
-              addEventListener('load', check);
-              addEventListener('resize', check);
-            })();
-          `}
-        </script>
-      )
+      import.meta.env.DEV && <script is:inline set:html={overflowDebugScript} />
     }
   </body>
 </html>

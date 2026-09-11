@@ -146,7 +146,12 @@ export interface OrderStore {
   /** Check and claim in one step, or refuse. Never two steps. */
   reserve(input: ReserveInput): Promise<ReserveResult>;
   releaseHold(holdId: string): Promise<void>;
-  confirmHold(holdId: string, orderRef: string): Promise<void>;
+  /**
+   * Mark the hold behind a paid order as confirmed. False means there was no
+   * live hold to confirm, which is a paid order holding no capacity, and the
+   * caller must raise that rather than let a bake day be quietly oversold.
+   */
+  confirmHold(holdId: string, orderRef: string): Promise<boolean>;
 
   /**
    * Claim a Stripe event id. "fresh" means this process owns it and must
@@ -189,6 +194,13 @@ export interface MemoryOrderStore extends OrderStore {
   readonly state: MemoryState;
   reset(): void;
 }
+
+/**
+ * How long a webhook event may sit claimed before another delivery of it may
+ * take the claim over. Longer than any function is allowed to run, so a claim
+ * this old belongs to a process that is not coming back.
+ */
+const STALE_CLAIM_MS = 5 * 60_000;
 
 function livePieces(state: MemoryState, bakeDate: IsoDate, now: number): number {
   let total = 0;
@@ -243,10 +255,22 @@ export function createMemoryOrderStore(): MemoryOrderStore {
       */
       const existing = state.holds.get(input.holdId);
       if (existing !== undefined && (existing.confirmed || existing.expiresAt > input.now)) {
+        /*
+          A retry gets a fresh session, and that session runs to a later
+          expiry than the first one did. The hold has to cover it. A hold
+          that expired before the session it backs would let somebody pay for
+          capacity that has already been given away, which is the one thing
+          this whole path exists to prevent. A confirmed hold is already paid
+          for and is never moved.
+        */
+        const extend = !existing.confirmed && input.expiresAt > existing.expiresAt;
+        const hold = extend ? { ...existing, expiresAt: input.expiresAt } : existing;
+        if (extend) state.holds.set(input.holdId, hold);
+
         const committed = livePieces(state, input.bakeDate, input.now);
         return {
           ok: true,
-          hold: existing,
+          hold,
           remainingPieces: Math.max(0, input.capacityPieces - committed),
           reused: true,
         };
@@ -279,14 +303,22 @@ export function createMemoryOrderStore(): MemoryOrderStore {
 
     async confirmHold(holdId, orderRef) {
       const hold = state.holds.get(holdId);
-      if (hold === undefined) return;
+      if (hold === undefined) return false;
       state.holds.set(holdId, { ...hold, confirmed: true, orderRef });
+      return true;
     },
 
     async beginEvent(eventId, now) {
       const seen = state.events.get(eventId);
       if (seen?.state === "done") return "done";
-      if (seen?.state === "in-flight") return "in-flight";
+      /*
+        An in-flight claim belongs to a process that is part way through the
+        event, or to one that died holding it. A function that is killed on a
+        timeout leaves the second kind behind, and a claim nobody ever
+        releases is a paid order that is never recorded. So a claim older
+        than STALE_CLAIM_MS is taken over rather than believed.
+      */
+      if (seen?.state === "in-flight" && now - seen.at < STALE_CLAIM_MS) return "in-flight";
       state.events.set(eventId, { state: "in-flight", at: now });
       return "fresh";
     },
@@ -385,6 +417,13 @@ export function defaultOrderStore(): OrderStore {
      in the same transaction to tell the two apart. Doing this as a select
      then an insert reintroduces exactly the race this exists to close.
 
+     On that retry case, push expires_at out to the new value when it is
+     later and the row is not confirmed. Each retry creates a session with a
+     later expiry, and the hold must outlive every session it backs.
+
+     confirmHold returns whether it actually updated a row. False is a paid
+     order with no capacity behind it and the webhook flags it.
+
   2. orders
        order_ref text primary key,
        stripe_session_id text unique not null,
@@ -413,7 +452,8 @@ export function defaultOrderStore(): OrderStore {
      A returned row means this process owns the event. No row means somebody
      else has it: read the state to decide between in-flight and done. An
      in-flight row older than five minutes belongs to a process that died and
-     may be reclaimed.
+     is reclaimed by updating claimed_at in the same statement, exactly as
+     the memory implementation above does.
 
   4. consent_records, admin_flags, subscribers
        Append only. consent_records is evidence: no update, no delete, and

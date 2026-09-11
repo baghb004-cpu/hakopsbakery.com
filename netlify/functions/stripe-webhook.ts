@@ -330,9 +330,21 @@ export async function handleStripeWebhook(req: Request, deps: WebhookDeps): Prom
 
   const now = deps.now();
   const claim = await deps.store.beginEvent(event.id, now.getTime());
-  if (claim !== "fresh") {
+  if (claim === "done") {
     deps.logger.info("webhook.duplicate", { eventId: event.id, type: event.type, claim });
     return jsonResponse(200, { received: true, duplicate: true });
+  }
+  if (claim === "in-flight") {
+    /*
+      Another delivery of this same event is part way through it. Answering
+      200 would tell Stripe the event is handled and stop the retries, and if
+      that other attempt never finishes, the order it was recording is lost
+      with nothing to bring it back. A non 2xx leaves the delivery unhandled,
+      so Stripe returns with it: by then the claim is either done, which
+      answers 200 above, or old enough for the store to hand over.
+    */
+    deps.logger.warn("webhook.claim-in-flight", { eventId: event.id, type: event.type });
+    return jsonResponse(409, { error: "event-in-flight" });
   }
 
   try {
@@ -357,7 +369,21 @@ export async function handleStripeWebhook(req: Request, deps: WebhookDeps): Prom
 
 async function route(event: Stripe.Event, deps: WebhookDeps, now: Date): Promise<void> {
   switch (event.type) {
+    /*
+      Both, and for the same reason. A card pays inside the session and
+      `completed` already carries payment_status paid. A bank debit completes
+      the session while the money is still moving, so `completed` arrives
+      unpaid and is set aside below, and the money landing is announced later
+      as `async_payment_succeeded` carrying the same session. Handling only
+      the first would take payment for an order that is never recorded, never
+      put through the California gate and never counted against the annual
+      ceiling. The failure of the same flow was already handled, so the
+      success has to be. onSessionCompleted is idempotent per session, so the
+      ordinary card case, where both could in principle arrive, records one
+      order.
+    */
     case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded":
       await onSessionCompleted(event.data.object as unknown as CompletedSession, deps, now);
       return;
 
@@ -443,7 +469,28 @@ async function onSessionCompleted(
   /* The order stands. ------------------------------------------------ */
 
   if (holdId !== null && holdId !== "") {
-    await deps.store.confirmHold(holdId, orderRef);
+    const held = await deps.store.confirmHold(holdId, orderRef);
+    if (!held) {
+      /*
+        Paid, but the hold behind it is gone: it expired, or something
+        released it while the customer was still on the Stripe page. The
+        order is real and stands, and it is recorded below, but it is holding
+        no capacity, so the bake day it belongs to now reads as emptier than
+        it is and can be sold twice. Nothing here can put the capacity back
+        without risking a date that is genuinely full, so it goes to Hakop.
+      */
+      deps.logger.error("webhook.hold-missing", { orderRef, sessionId: session.id, holdId, bakeDate });
+      await deps.store.flag({
+        code: "capacity-not-held",
+        orderRef,
+        sessionId: session.id,
+        detail:
+          `This order is paid but its capacity hold ${holdId} no longer exists, so ` +
+          `${bakeDate || "its bake date"} is not counting it. Check that day is not oversold.`,
+        createdAt: now.toISOString(),
+        context: { holdId, bakeDate, piecesTotal: intFrom(metadata, "piecesTotal") },
+      });
+    }
   }
 
   const contribution = capContributionFromSession(session);

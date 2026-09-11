@@ -19,6 +19,48 @@ const links = [
   { href: "/faq", label: "Questions", when: true },
   { href: "/contact", label: "Contact", when: true },
 ].filter((l) => l.when);
+
+/*
+  The cart badge script, held as a string and written out with set:html.
+
+  It has to be a string. Astro treats the children of a script tag as raw
+  text, so a JSX style template literal written inside one is emitted into the
+  page character for character, braces and backticks included. The browser
+  then parses a block statement wrapping a discarded string, the function is
+  never called, and the badge silently never paints. That is what used to
+  happen here.
+*/
+const cartCountScript = `
+(function () {
+  var KEY = 'hb.cart';
+  function paint() {
+    var badge = document.querySelector('[data-cart-count]');
+    if (!badge) return;
+    var n = 0;
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) {
+        var cart = JSON.parse(raw);
+        if (cart && Array.isArray(cart.lines)) {
+          n = cart.lines.reduce(function (sum, line) {
+            var q = parseInt(line && line.qty, 10);
+            return sum + (q > 0 ? Math.min(q, 20) : 0);
+          }, 0);
+        }
+      }
+    } catch (e) { /* private mode, or a full quota. Show nothing. */ }
+    badge.textContent = n > 0 ? String(n) : '';
+    badge.hidden = n === 0;
+    var label = document.querySelector('[data-cart-count-label]');
+    if (label) {
+      label.textContent = n === 0 ? '' : (n === 1 ? '1 item in cart' : n + ' items in cart');
+    }
+  }
+  paint();
+  addEventListener('storage', function (e) { if (e.key === KEY) paint(); });
+  addEventListener('hb:cart', paint);
+})();
+`;
 ---
 
 <header class="masthead">
@@ -69,42 +111,7 @@ const links = [
     and the checkout gate, which genuinely need it. See DECISIONS.md D-006.
   */
 }
-{
-  storeOpen && (
-    <script is:inline>
-      {`
-        (function () {
-          var KEY = 'hb.cart';
-          function paint() {
-            var badge = document.querySelector('[data-cart-count]');
-            if (!badge) return;
-            var n = 0;
-            try {
-              var raw = localStorage.getItem(KEY);
-              if (raw) {
-                var cart = JSON.parse(raw);
-                if (cart && Array.isArray(cart.lines)) {
-                  n = cart.lines.reduce(function (sum, line) {
-                    return sum + (parseInt(line.qty, 10) || 0);
-                  }, 0);
-                }
-              }
-            } catch (e) { /* private mode, or a full quota. Show nothing. */ }
-            badge.textContent = n > 0 ? String(n) : '';
-            badge.hidden = n === 0;
-            var label = document.querySelector('[data-cart-count-label]');
-            if (label) {
-              label.textContent = n === 0 ? '' : (n === 1 ? '1 item in cart' : n + ' items in cart');
-            }
-          }
-          paint();
-          addEventListener('storage', function (e) { if (e.key === KEY) paint(); });
-          addEventListener('hb:cart', paint);
-        })();
-      `}
-    </script>
-  )
-}
+{storeOpen && <script is:inline set:html={cartCountScript} />}
 
 <style>
   .masthead {
@@ -158,7 +165,7 @@ const links = [
   }
 
   .wordmark:hover .wordmark__name {
-    color: var(--color-stitch);
+    color: var(--color-link);
   }
 
   /* ---- Navigation ---- */
@@ -190,7 +197,7 @@ const links = [
   }
 
   .nav__link:hover {
-    color: var(--color-stitch);
+    color: var(--color-link);
     box-shadow: inset 0 -1px 0 0 currentColor;
   }
 

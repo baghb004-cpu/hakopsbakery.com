@@ -51,16 +51,46 @@
   h3 { font-size: var(--text-xl); }
   h4 { font-size: var(--text-lg); }
 
+  /*
+    A section heading and the copy under it are not one paragraph. The reset
+    above zeroes every heading margin, and only some components put the space
+    back on the element that follows, so a 50px serif heading could end up
+    welded to 17px body copy with nothing between them at all.
+
+    Stated in em so it tracks the heading rather than the body, and as a
+    bottom margin so it collapses with a margin-top already set on the next
+    element and the larger of the two survives.
+
+    Specificity is deliberately 0,0,2: `:has()` takes the specificity of its
+    argument, so `h2:has(+ :is(p))` is one element more specific than the
+    `margin: 0` reset above and clears it, while every component rule is a
+    class at 0,1,0 or better and still wins outright.
+  */
+  h2:has(+ :is(p, ul, ol, dl, blockquote)) {
+    margin-bottom: 0.3em;
+  }
+
   p { margin: 0; text-wrap: pretty; }
 
+  /*
+    The underline has to be stated. Tailwind's preflight sets
+    `a { text-decoration: inherit }`, which inherits `none` from the
+    paragraph and silently removes the browser's own underline, leaving the
+    thickness and offset below with nothing to draw. Link ink is the link colour and
+    body ink is crust-soft, and those two sit 1.4 lightness apart in OKLCH,
+    which is 1.03:1: a reader cannot find a link by colour alone, so the line
+    is the thing doing the work. Every component that wants a bare link says
+    `text-decoration: none` for itself already.
+  */
   a {
-    color: var(--color-stitch);
+    color: var(--color-link);
+    text-decoration-line: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
     transition: color var(--dur-fast) var(--ease-out);
   }
 
-  a:hover { color: var(--color-stitch-bright); }
+  a:hover { color: var(--color-link-bright); }
 
   /* Numbers must not jitter when a quantity or a price changes. */
   .tabular,
@@ -93,7 +123,7 @@
 
   /* A focus ring that is genuinely visible on every ground we use. */
   :focus-visible {
-    outline: 3px solid var(--color-stitch);
+    outline: 3px solid var(--color-link);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
@@ -179,8 +209,8 @@
     height: 1.4rem;
     padding-inline: 0.35rem;
     border-radius: 0.7rem;
-    background: var(--color-pomegranate);
-    color: var(--color-on-accent);
+    background: var(--color-crust);
+    color: var(--color-sesame);
     font-size: var(--text-xs);
     font-weight: 700;
     line-height: 1;
@@ -261,6 +291,6 @@
 
 @media (min-width: 0px) {
   html[data-overflow-debug="on"] * {
-    outline: 1px solid color-mix(in oklab, var(--color-pomegranate) 40%, transparent);
+    outline: 1px solid color-mix(in oklab, var(--color-bad) 40%, transparent);
   }
 }

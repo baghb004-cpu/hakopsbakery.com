@@ -521,6 +521,57 @@ describe("idempotency", () => {
     expect((bench.store as Bench["store"]).state.orders.size).toBe(1);
   });
 
+  it("does not tell Stripe an event is handled while it is still in flight", async () => {
+    const bench = deps();
+    await withHold(bench);
+    const store = bench.store as Bench["store"];
+
+    /* Somebody else claimed it a moment ago and has not finished. */
+    await store.beginEvent("evt_test_0001", FRIDAY_MORNING.getTime());
+
+    const response = await handleStripeWebhook(
+      delivery(event("checkout.session.completed", session({ shipping: CYPRESS }))),
+      bench,
+    );
+
+    /* Not a 2xx, so Stripe comes back with it rather than dropping it. */
+    expect(response.status).toBe(409);
+    expect(store.state.orders.size).toBe(0);
+  });
+
+  it("takes over a claim left behind by a process that died", async () => {
+    const bench = deps();
+    await withHold(bench);
+    const store = bench.store as Bench["store"];
+
+    /* Claimed an hour ago and never completed or failed: a function that was
+       killed on a timeout. Believing that claim loses the order forever. */
+    await store.beginEvent("evt_test_0001", FRIDAY_MORNING.getTime() - 3_600_000);
+
+    const response = await handleStripeWebhook(
+      delivery(event("checkout.session.completed", session({ shipping: CYPRESS }))),
+      bench,
+    );
+
+    expect(response.status).toBe(200);
+    expect(store.state.orders.size).toBe(1);
+  });
+
+  it("flags a paid order whose capacity hold has gone", async () => {
+    const bench = deps();
+    /* No hold: it expired, or something released it while the customer was
+       still on the Stripe page. The order stands, but the bake day is not
+       counting it and somebody has to know. */
+    await handleStripeWebhook(
+      delivery(event("checkout.session.completed", session({ shipping: CYPRESS }))),
+      bench,
+    );
+
+    const store = bench.store as Bench["store"];
+    expect(store.state.orders.size).toBe(1);
+    expect(store.state.flags.some((flag) => flag.code === "capacity-not-held")).toBe(true);
+  });
+
   it("gives the event id back when the handler fails, so a retry is real work", async () => {
     const bench = deps();
     await withHold(bench);
@@ -581,6 +632,51 @@ describe("the other events", () => {
     /* The hold is still there, so the capacity is not given away meanwhile. */
     expect(store.state.holds.get("hold_abcdef")?.confirmed).toBe(false);
     expect(store.state.holds.size).toBe(1);
+  });
+
+  it("records the order when a delayed payment finally lands", async () => {
+    const bench = deps();
+    await withHold(bench);
+
+    /* The bank debit case: the session completes before the money moves. */
+    await handleStripeWebhook(
+      delivery(
+        event("checkout.session.completed", session({ paymentStatus: "unpaid" }), "evt_unpaid_2"),
+      ),
+      bench,
+    );
+    const store = bench.store as Bench["store"];
+    expect(store.state.orders.size).toBe(0);
+
+    /* Then it lands. Handling the failure and not the success would take the
+       money and never record the order. */
+    const response = await handleStripeWebhook(
+      delivery(
+        event("checkout.session.async_payment_succeeded", session({ shipping: CYPRESS }), "evt_paid"),
+      ),
+      bench,
+    );
+
+    expect(response.status).toBe(200);
+    expect(store.state.orders.size).toBe(1);
+    expect(store.state.holds.get("hold_abcdef")?.confirmed).toBe(true);
+  });
+
+  it("puts a delayed payment to an out of state address through the same gate", async () => {
+    const bench = deps();
+    await withHold(bench);
+
+    await handleStripeWebhook(
+      delivery(
+        event("checkout.session.async_payment_succeeded", session({ shipping: LAS_VEGAS }), "evt_paid_nv"),
+      ),
+      bench,
+    );
+
+    expect((bench.stripe as Bench["stripe"]).refunds).toHaveLength(1);
+    expect(
+      (bench.store as Bench["store"]).state.flags.some((flag) => flag.code === "refunded-out-of-state"),
+    ).toBe(true);
   });
 
   it("ignores an event type it has no opinion about", async () => {

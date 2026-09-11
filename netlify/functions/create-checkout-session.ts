@@ -124,9 +124,10 @@ const requestSchema = z.object({
   email: z.string().max(254).nullish(),
   /**
    * Optional, and supplied by the browser once per checkout attempt. It makes
-   * a retry of the same attempt idempotent: the same request produces the
-   * same hold and the same Stripe idempotency key, so a double tap on a slow
-   * connection cannot claim capacity twice or create two sessions.
+   * a retry of the same attempt idempotent where it matters: the same request
+   * produces the same hold, so a double tap on a slow connection claims the
+   * capacity once rather than twice. See the note on the idempotency key
+   * below for what a retry does at Stripe, which is not the same question.
    */
   requestId: z.string().min(8).max(100).nullish(),
 });
@@ -191,6 +192,17 @@ async function attemptFingerprint(request: CheckoutRequest): Promise<string> {
 /** Short, readable, and printed on the bake list. Deterministic per attempt. */
 function orderRefFrom(fingerprint: string): string {
   return `HB-${fingerprint.slice(0, 10).toUpperCase()}`;
+}
+
+/**
+ * Did Stripe refuse because this idempotency key was first used with other
+ * parameters? Read off the error rather than the message, because the message
+ * is prose and it is not ours.
+ */
+function isIdempotencyConflict(cause: unknown): boolean {
+  if (cause === null || typeof cause !== "object") return false;
+  const error = cause as { type?: unknown; rawType?: unknown };
+  return error.type === "StripeIdempotencyError" || error.rawType === "idempotency_error";
 }
 
 /* ------------------------------------------------------------------ */
@@ -430,15 +442,27 @@ export async function handleCreateCheckoutSession(
     consentAt: now.toISOString(),
   });
 
+  /*
+    An idempotency key belongs to the parameters it was first used with.
+    Stripe answers a reuse of the same key with different parameters as an
+    error, not as a replay, and two values in these parameters move with the
+    clock: the session expiry, which Stripe requires to be at least thirty
+    minutes ahead of the moment the session is created, and the consent
+    timestamp. So a key over the attempt alone would turn every retry of an
+    attempt into a refusal that the customer cannot get past for as long as
+    Stripe remembers the key.
+
+    The key therefore covers the attempt AND the parameters. An identical
+    request, which is what a double tap on a slow connection sends, replays
+    the session that already exists. A retry a minute later, whose expiry has
+    necessarily moved, gets its own session against the SAME hold, because
+    the hold id is derived from the attempt and reserve() hands the existing
+    one back rather than claiming the capacity twice.
+  */
+  const idempotencyKey = `checkout:${fingerprint.slice(0, 16)}:${await sha256Hex(JSON.stringify(params))}`;
+
   try {
-    const session = await deps.stripe.createCheckoutSession(params, {
-      /*
-        Derived from the attempt, not from a random value, so that a retry of
-        the same attempt returns the session that already exists instead of
-        creating a second one against the same held capacity.
-      */
-      idempotencyKey: `checkout:${fingerprint}`,
-    });
+    const session = await deps.stripe.createCheckoutSession(params, { idempotencyKey });
 
     if (session.url === null) {
       /*
@@ -502,8 +526,17 @@ export async function handleCreateCheckoutSession(
       Nothing was charged: a session that failed to create cannot have taken
       money. Give the capacity back rather than leaving it held for half an
       hour by an order that does not exist.
+
+      The exception is Stripe refusing on the idempotency key, which means a
+      session for these exact parameters already exists. That session is live
+      and payable, and this hold is the capacity behind it. Releasing it here
+      would sell the bake day to somebody else while the first customer is
+      still on the payment page, which is the oversell this function is built
+      to prevent.
     */
-    await deps.store.releaseHold(holdId);
+    if (!isIdempotencyConflict(cause)) {
+      await deps.store.releaseHold(holdId);
+    }
 
     const reference = newReference();
     deps.logger.error("checkout.stripe-failed", { reference, orderRef, ...describeError(cause) });

@@ -48,6 +48,14 @@ const heroStatus = anythingBuyable
 const heroLede =
   "Rolled dough with a sweet nut filling, sliced into pieces, washed gold " +
   "and scattered by hand with sesame. Baked in Cypress, sold by the tray.";
+
+/*
+  720 is in this ladder to close a gap. 530 to 1060 is a doubling with nothing
+  in between, so a 2x phone asking for roughly 560 px skipped to the 1060 and
+  pulled 197 KB into a 288 px box. 720 is the rung that request lands on
+  instead, and it costs 112 KB.
+*/
+const STORY_WIDTHS = [360, 530, 720, 1060];
 ---
 
 <Base title={site.title} primary>
@@ -224,7 +232,7 @@ const heroLede =
           alt="A whole sheet pan of gata, every piece washed to a deep gold and scattered with sesame seeds."
           width={530}
           height={590}
-          widths={[360, 530, 1060]}
+          widths={STORY_WIDTHS}
           sizes="(min-width: 52rem) 24rem, 88vw"
           loading="lazy"
           decoding="async"
@@ -344,6 +352,10 @@ const heroLede =
       border-inline-start: 1px solid var(--color-line);
       padding-top: 0.35rem;
       padding-inline-start: clamp(1.25rem, 3vw, 2rem);
+      /* The rule marks the column, so it runs the height of the column. The
+         grid is start aligned, which left the line ending a quarter of the
+         way down the card with nothing to close it. */
+      align-self: stretch;
     }
   }
 

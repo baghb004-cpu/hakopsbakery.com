@@ -2,6 +2,7 @@ import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
+import zeroJsRoutes from "./src/integrations/zero-js-routes.mjs";
 
 const SITE = process.env.PUBLIC_SITE_URL || "https://hakopsbakery.com";
 
@@ -20,6 +21,14 @@ export default defineConfig({
 
   integrations: [
     react(),
+    /*
+      The label QR route is the one page on this site that must ship no script
+      at all. Astro's prefetch runtime is a global "page" stage script with no
+      per route switch, so it is stripped from /p/ after the build. See the file
+      for the full reasoning, and scripts/check-html.mjs for the assertion that
+      keeps it true.
+    */
+    zeroJsRoutes({ prefixes: ["/p/"] }),
     sitemap({
       filter: (page) =>
         // Order status pages are per customer and signed. Keep them out of

@@ -23,6 +23,14 @@ import { business, storeOpen } from "@config/site";
 import { getProduct, listPublishedProducts } from "@lib/catalog-source";
 
 const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0] ?? null;
+
+/*
+  640 is in this ladder to close a gap. With only 320, 450 and 900 the step from
+  450 to 900 is a doubling, and a 2x phone asking for roughly 500 px has nothing
+  in between, so it takes the 900 and pulls 160 KB into a 288 px box. 640 is the
+  rung that request lands on instead, and it costs 94 KB.
+*/
+const SQUARE_WIDTHS = [320, 450, 640, 900];
 ---
 
 <Base
@@ -166,7 +174,7 @@ const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0]
             alt="A packed tray of gata seen from straight above, pieces set side by side, sesame scattered across every gold top."
             width={450}
             height={450}
-            widths={[320, 450, 900]}
+            widths={SQUARE_WIDTHS}
             sizes="(min-width: 56rem) 20rem, 78vw"
             loading="lazy"
             decoding="async"
@@ -393,7 +401,7 @@ const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0]
   .allergens {
     margin-top: 1.35rem;
     padding-left: 0.9rem;
-    border-left: 2px solid var(--color-pomegranate);
+    border-left: 2px solid var(--color-bad);
   }
 
   .allergens__note {
@@ -419,7 +427,7 @@ const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0]
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     font-weight: 700;
-    color: var(--color-pomegranate);
+    color: var(--color-warn);
   }
 
   .todo__seed {
@@ -427,7 +435,7 @@ const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0]
     width: 8px;
     height: 5px;
     border-radius: 50%;
-    background-color: var(--color-pomegranate);
+    background-color: var(--color-warn);
     transform: rotate(-24deg);
   }
 
