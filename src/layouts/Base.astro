@@ -1,0 +1,170 @@
+---
+/**
+ * The one page shell. Every route in this site renders through here, which
+ * is what keeps the container width, the vertical rhythm, the header, and the
+ * legally required footer identical on every page.
+ *
+ * Ships zero JavaScript unless a page explicitly mounts an island.
+ */
+import "@/styles/global.css";
+import { preloadFonts } from "@lib/fonts";
+import { site, business, analytics, compliance, storeOpen } from "@config/site";
+import SiteHeader from "@components/SiteHeader.astro";
+import SiteFooter from "@components/SiteFooter.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Absolute or root relative. Falls back to the default share image. */
+  image?: string;
+  /** Keep a page out of search results. Order status pages use this. */
+  noindex?: boolean;
+  /** Adds the structured data block. Home page only, to avoid duplicates. */
+  primary?: boolean;
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description = site.description,
+  image = "/og-default.jpg",
+  noindex = false,
+  primary = false,
+  bodyClass = "",
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, site.url).href;
+const ogImage = new URL(image, site.url).href;
+
+/* The tab title. The home page carries the full name on its own. */
+const fullTitle = primary ? title : `${title}, ${business.shortName}`;
+
+/*
+  Structured data. Deliberately modest: it describes a food business that
+  exists and sells one product. Nothing is claimed that is not true, and no
+  rating or review markup is present, because there are no reviews yet.
+*/
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "Bakery",
+  name: business.name,
+  description: site.description,
+  url: site.url,
+  image: ogImage,
+  founder: { "@type": "Person", name: business.owner },
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: business.city,
+    addressRegion: business.state,
+    addressCountry: "US",
+  },
+  areaServed: { "@type": "State", name: "California" },
+  servesCuisine: "Armenian",
+  ...(business.email ? { email: business.email } : {}),
+};
+---
+
+<!doctype html>
+<html lang="en" prefix="og: https://ogp.me/ns#">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to a
+         real value on a notched iPhone. Without it the sticky order bar sits
+         under the home indicator. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <!-- Self hosted, so no third party connection to open before text paints.
+         Latin only: the Armenian subset loads when Armenian text appears. -->
+    {
+      preloadFonts.map((href) => (
+        <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+      ))
+    }
+
+    <meta name="theme-color" content="#efe6d2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#3a2317" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={business.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A tray of freshly baked Armenian gata, scattered with sesame seeds." />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    {primary && <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />}
+
+    {
+      /*
+        Cloudflare Web Analytics. Loaded last, deferred, and about a kilobyte.
+        No cookies, so no consent banner and a short privacy policy.
+        Deliberately not Google Analytics. See docs/DECISIONS.md D-002.
+      */
+      analytics.cloudflareToken && (
+        <script
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={`{"token": "${analytics.cloudflareToken}"}`}
+        />
+      )
+    }
+  </head>
+
+  <body class={bodyClass}>
+    <a class="skip-link" href="#main">Skip to the main content</a>
+
+    <SiteHeader />
+
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+
+    <SiteFooter />
+
+    {
+      /*
+        Development only. Outlines any element wider than the viewport so a
+        sideways scroll is impossible to miss while building. Stripped from
+        production by the import.meta.env.DEV guard, which Vite folds away.
+      */
+      import.meta.env.DEV && (
+        <script is:inline>
+          {`
+            (function () {
+              var check = function () {
+                var w = document.documentElement.clientWidth;
+                var bad = [];
+                document.querySelectorAll('body *').forEach(function (el) {
+                  var r = el.getBoundingClientRect();
+                  if (r.width > w + 1 || r.right > w + 1 || r.left < -1) bad.push(el);
+                });
+                if (bad.length) {
+                  console.warn('[layout] ' + bad.length + ' element(s) overflow the viewport:', bad);
+                  document.documentElement.dataset.overflowDebug = 'on';
+                } else {
+                  delete document.documentElement.dataset.overflowDebug;
+                }
+              };
+              addEventListener('load', check);
+              addEventListener('resize', check);
+            })();
+          `}
+        </script>
+      )
+    }
+  </body>
+</html>

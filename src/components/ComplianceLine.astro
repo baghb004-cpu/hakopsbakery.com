@@ -1,0 +1,117 @@
+---
+/**
+ * The cottage food disclosure.
+ *
+ * California requires a Class A cottage food operation that advertises to the
+ * public, and that explicitly includes its own website, to display the county
+ * of approval, the registration number, and a "Made in a Home Kitchen"
+ * statement. See docs/BRIEF.md Section 4 and docs/COMPLIANCE.md.
+ *
+ * This is the only place in the codebase that renders those three values.
+ * Every other page composes this component. Nothing here is ever typed into
+ * a template by hand, so the wording cannot drift between pages.
+ *
+ * It is deliberately rendered in normal readable text. Not 10px grey.
+ */
+import { business, compliance, complianceIsComplete } from "@config/site";
+
+interface Props {
+  /**
+   * footer   the permanent line at the foot of every page
+   * inline   within a product page, the cart, or the label page
+   * checkout the fuller statement shown before payment
+   */
+  variant?: "footer" | "inline" | "checkout";
+  class?: string;
+}
+
+const { variant = "inline", class: className = "" } = Astro.props;
+
+/*
+  Before the registration arrives there is no number to show. Rather than
+  print a placeholder that looks like a real registration, say plainly that
+  the application is in progress. Honest, and it cannot be mistaken for a
+  number that does not exist.
+*/
+const pending = !complianceIsComplete;
+---
+
+<div class={`disclosure disclosure--${variant} ${className}`} data-compliance>
+  <p class="disclosure__statement">
+    {compliance.homeKitchenStatement}
+  </p>
+
+  {
+    pending ? (
+      <p class="disclosure__reg disclosure__reg--pending">
+        {business.name} is registered as a Class {compliance.operationClass} Cottage
+        Food Operation in {compliance.county}, California. The registration
+        number appears here once the county issues it.
+      </p>
+    ) : (
+      <p class="disclosure__reg">
+        {business.name}. Class {compliance.operationClass} Cottage Food Operation,
+        {" "}{compliance.county}, California. Registration number{" "}
+        <span class="disclosure__number tabular">{compliance.registrationNumber}</span>.
+      </p>
+    )
+  }
+
+  {
+    variant === "checkout" && (
+      <p class="disclosure__extra">
+        This food is made in a private home kitchen. The kitchen is registered
+        with and approved by {compliance.county}, and it is not subject to the
+        routine inspection that applies to a commercial facility. If you have a
+        food allergy, read the{" "}
+        <a href="/legal/allergens">full allergen statement</a> before ordering.
+      </p>
+    )
+  }
+</div>
+
+<style>
+  .disclosure {
+    color: var(--color-crust);
+  }
+
+  .disclosure__statement {
+    font-weight: 600;
+  }
+
+  .disclosure__reg,
+  .disclosure__extra {
+    color: var(--color-crust-soft);
+    margin-top: 0.4em;
+  }
+
+  .disclosure__number {
+    font-weight: 600;
+    color: var(--color-crust);
+  }
+
+  /* Readable, never decorative. The smallest this is allowed to get. */
+  .disclosure--footer,
+  .disclosure--inline {
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    max-width: 46rem;
+  }
+
+  .disclosure--inline {
+    border-left: 2px solid var(--color-eggwash);
+    padding-left: 0.9rem;
+  }
+
+  .disclosure--checkout {
+    font-size: var(--text-base);
+    background: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.1rem;
+  }
+
+  .disclosure--checkout .disclosure__extra {
+    margin-top: 0.7em;
+  }
+</style>

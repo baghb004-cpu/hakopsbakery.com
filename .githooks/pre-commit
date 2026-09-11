@@ -1,0 +1,10 @@
+#!/bin/sh
+# Blocks a commit that contains an em dash or any part of the recipe.
+# Installed by `npm run hooks:install`, or by hand:
+#   git config core.hooksPath .githooks
+node scripts/check-copy.mjs || {
+  echo ""
+  echo "Commit blocked by the content guard above."
+  echo "Nothing has been committed. Fix the lines listed, then commit again."
+  exit 1
+}

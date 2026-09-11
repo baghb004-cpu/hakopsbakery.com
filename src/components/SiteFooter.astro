@@ -1,0 +1,210 @@
+---
+/**
+ * Site footer.
+ *
+ * The compliance block at the top of this footer is a legal requirement on
+ * every page of this site, not a nicety. It is rendered at readable size in
+ * the normal text colour. Do not shrink it, grey it out, or move it behind a
+ * link. See docs/BRIEF.md Section 4.
+ */
+import { business, storeOpen, site } from "@config/site";
+import ComplianceLine from "@components/ComplianceLine.astro";
+import SeedRule from "@components/SeedRule.astro";
+
+const year = new Date().getFullYear();
+
+const columns = [
+  {
+    heading: "Order",
+    links: [
+      { href: "/shop", label: "Shop", when: storeOpen },
+      { href: "/faq#delivery", label: "Delivery and pickup", when: true },
+      { href: "/faq#lead-time", label: "Lead times", when: true },
+      { href: "/legal/refunds", label: "Refunds and cancellations", when: true },
+    ],
+  },
+  {
+    heading: "About",
+    links: [
+      { href: "/story", label: "Hakop's story", when: true },
+      { href: "/gata", label: "What gata is", when: true },
+      { href: "/faq", label: "Questions", when: true },
+      { href: "/contact", label: "Contact", when: true },
+    ],
+  },
+  {
+    heading: "The small print",
+    links: [
+      { href: "/legal/allergens", label: "Allergens", when: true },
+      { href: "/legal/terms", label: "Terms", when: true },
+      { href: "/legal/privacy", label: "Privacy", when: true },
+      { href: "/legal/accessibility", label: "Accessibility", when: true },
+    ],
+  },
+].map((c) => ({ ...c, links: c.links.filter((l) => l.when) }));
+---
+
+<footer class="footer">
+  <SeedRule density="sparse" class="footer__seam" />
+
+  <div class="page footer__inner">
+    <!-- Required on every page. Readable text, normal colour, never hidden. -->
+    <section class="footer__compliance" aria-labelledby="footer-compliance-heading">
+      <h2 id="footer-compliance-heading" class="sr-only">
+        Cottage food operation disclosure
+      </h2>
+      <ComplianceLine variant="footer" />
+    </section>
+
+    <div class="footer__grid">
+      {
+        columns.map((col) => (
+          <nav class="footer__col" aria-label={col.heading}>
+            <h3 class="footer__heading">{col.heading}</h3>
+            <ul class="footer__list">
+              {col.links.map((link) => (
+                <li>
+                  <a href={link.href} class="footer__link">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+
+      <div class="footer__col">
+        <h3 class="footer__heading">Reach Hakop</h3>
+        <ul class="footer__list">
+          <li>
+            <a href={`mailto:${business.email}`} class="footer__link">{business.email}</a>
+          </li>
+          {
+            business.phone && (
+              <li>
+                <a href={`tel:${business.phone.replace(/[^\d+]/g, "")}`} class="footer__link">
+                  {business.phone}
+                </a>
+              </li>
+            )
+          }
+          {
+            business.instagram && (
+              <li>
+                <a
+                  href={`https://instagram.com/${business.instagram.replace("@", "")}`}
+                  class="footer__link"
+                  rel="me noopener"
+                >
+                  {business.instagram} on Instagram
+                </a>
+              </li>
+            )
+          }
+          <li class="footer__where">
+            Baked in {business.city}, {business.state}. Sold across California only.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer__legal">
+      <span>&copy; {year} {business.owner}</span>
+      <span class="footer__sep" aria-hidden="true"></span>
+      <span>California sales only, as cottage food law requires</span>
+    </p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    margin-top: clamp(3rem, 8vw, 6rem);
+    background: var(--color-paper);
+    border-top: 1px solid var(--color-line);
+    /* Clears the iPhone home indicator on pages with no sticky bar. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .footer__seam {
+    margin-top: -0.7rem;
+    opacity: 0.8;
+  }
+
+  .footer__inner {
+    padding-block: clamp(1.5rem, 4vw, 2.75rem) clamp(2rem, 5vw, 3rem);
+    display: grid;
+    gap: clamp(1.75rem, 4vw, 2.75rem);
+  }
+
+  .footer__compliance {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .footer__grid {
+    display: grid;
+    gap: 1.75rem 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  }
+
+  .footer__heading {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--color-crust);
+    margin-bottom: 0.6rem;
+  }
+
+  .footer__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  .footer__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-crust-soft);
+    font-size: var(--text-sm);
+    text-decoration: none;
+  }
+
+  .footer__link:hover {
+    color: var(--color-stitch);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .footer__where {
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    padding-top: 0.6rem;
+    max-width: 16rem;
+  }
+
+  .footer__legal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: var(--text-xs);
+    color: var(--color-crust-soft);
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* A single sesame seed as the separator, rather than a middle dot. */
+  .footer__sep {
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-eggwash);
+    transform: rotate(-24deg);
+    flex: none;
+  }
+</style>

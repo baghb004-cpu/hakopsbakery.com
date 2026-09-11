@@ -1,0 +1,214 @@
+---
+/**
+ * Site header. No JavaScript.
+ *
+ * The navigation is a wrapping row rather than a hamburger. There are five
+ * destinations, they fit on two lines at 320px, and a menu that has to be
+ * opened to be read is worse than one that is simply visible.
+ */
+import { business, storeOpen } from "@config/site";
+
+const path = Astro.url.pathname;
+const isHere = (href: string) =>
+  href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
+
+const links = [
+  { href: "/shop", label: "Shop", when: storeOpen },
+  { href: "/gata", label: "What gata is", when: true },
+  { href: "/story", label: "Story", when: true },
+  { href: "/faq", label: "Questions", when: true },
+  { href: "/contact", label: "Contact", when: true },
+].filter((l) => l.when);
+---
+
+<header class="masthead">
+  <div class="page masthead__inner">
+    <a class="wordmark" href="/" aria-label={`${business.name}, home`}>
+      <span class="wordmark__name">{business.name}</span>
+      <span class="wordmark__native" lang="hy">Գաթա</span>
+    </a>
+
+    <nav class="nav" aria-label="Main">
+      <ul class="nav__list">
+        {
+          links.map((link) => (
+            <li>
+              <a
+                href={link.href}
+                class="nav__link"
+                aria-current={isHere(link.href) ? "page" : undefined}
+              >
+                {link.label}
+              </a>
+            </li>
+          ))
+        }
+        {
+          storeOpen && (
+            <li class="nav__cart">
+              <a href="/cart" class="nav__link nav__link--cart">
+                Cart
+                <span class="cart-count tabular" data-cart-count hidden aria-hidden="true" />
+                <span class="sr-only" data-cart-count-label role="status" />
+              </a>
+            </li>
+          )
+        }
+      </ul>
+    </nav>
+  </div>
+</header>
+
+{
+  /*
+    The cart count is a number read from localStorage. Hydrating React to
+    render it would pull 215 kilobytes onto every page on the site, including
+    the legal pages and the label QR page that a customer scans on cellular
+    while worried about an allergy. So it is done here, inline, in about four
+    hundred bytes, and React is reserved for the cart, the fulfillment picker
+    and the checkout gate, which genuinely need it. See DECISIONS.md D-006.
+  */
+}
+{
+  storeOpen && (
+    <script is:inline>
+      {`
+        (function () {
+          var KEY = 'hb.cart';
+          function paint() {
+            var badge = document.querySelector('[data-cart-count]');
+            if (!badge) return;
+            var n = 0;
+            try {
+              var raw = localStorage.getItem(KEY);
+              if (raw) {
+                var cart = JSON.parse(raw);
+                if (cart && Array.isArray(cart.lines)) {
+                  n = cart.lines.reduce(function (sum, line) {
+                    return sum + (parseInt(line.qty, 10) || 0);
+                  }, 0);
+                }
+              }
+            } catch (e) { /* private mode, or a full quota. Show nothing. */ }
+            badge.textContent = n > 0 ? String(n) : '';
+            badge.hidden = n === 0;
+            var label = document.querySelector('[data-cart-count-label]');
+            if (label) {
+              label.textContent = n === 0 ? '' : (n === 1 ? '1 item in cart' : n + ' items in cart');
+            }
+          }
+          paint();
+          addEventListener('storage', function (e) { if (e.key === KEY) paint(); });
+          addEventListener('hb:cart', paint);
+        })();
+      `}
+    </script>
+  )
+}
+
+<style>
+  .masthead {
+    background: var(--color-sesame);
+    border-bottom: 1px solid var(--color-line);
+    /* Sticky, but it does not float over content with a shadow. It sits. */
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  .masthead__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    padding-block: 0.85rem;
+  }
+
+  /* ---- Wordmark ---- */
+
+  .wordmark {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    text-decoration: none;
+    color: var(--color-crust);
+    /* The tap target rule, met without padding that breaks the baseline. */
+    min-height: 44px;
+    align-content: center;
+    flex-wrap: wrap;
+  }
+
+  .wordmark__name {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 600;
+    letter-spacing: -0.018em;
+    line-height: 1.1;
+  }
+
+  .wordmark__native {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--color-eggwash-ink);
+    letter-spacing: 0.01em;
+    /* Sits slightly low, the way a baker's second line sits on a paper bag. */
+    position: relative;
+    top: 1px;
+  }
+
+  .wordmark:hover .wordmark__name {
+    color: var(--color-stitch);
+  }
+
+  /* ---- Navigation ---- */
+
+  .nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1.35rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    /* 44px minimum tap target, per the brief. */
+    min-height: 44px;
+    padding-inline: 2px;
+    color: var(--color-crust);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    /* The underline grows from the text rather than appearing. */
+    box-shadow: inset 0 -1px 0 0 transparent;
+    transition: box-shadow var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  }
+
+  .nav__link:hover {
+    color: var(--color-stitch);
+    box-shadow: inset 0 -1px 0 0 currentColor;
+  }
+
+  .nav__link[aria-current="page"] {
+    color: var(--color-crust);
+    box-shadow: inset 0 -2px 0 0 var(--color-eggwash);
+  }
+
+  .nav__link--cart {
+    font-weight: 600;
+  }
+
+  @media (max-width: 26rem) {
+    .masthead__inner {
+      gap: 0.15rem 1rem;
+    }
+    .nav__list {
+      gap: 0 1.1rem;
+    }
+  }
+</style>

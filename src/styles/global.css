@@ -1,0 +1,266 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./fonts.css";
+
+/* ----------------------------------------------------------------------
+   Base
+   ---------------------------------------------------------------------- */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    /* Anchored headings clear the sticky header instead of hiding under it */
+    scroll-padding-top: 5.5rem;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-sesame);
+    color: var(--color-crust);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-body);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    /* Nothing on this site may cause a sideways scroll at any width. */
+    overflow-x: clip;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: var(--text-4xl); }
+  h2 { font-size: var(--text-3xl); }
+  h3 { font-size: var(--text-xl); }
+  h4 { font-size: var(--text-lg); }
+
+  p { margin: 0; text-wrap: pretty; }
+
+  a {
+    color: var(--color-stitch);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+
+  a:hover { color: var(--color-stitch-bright); }
+
+  /* Numbers must not jitter when a quantity or a price changes. */
+  .tabular,
+  time,
+  output,
+  [data-price],
+  [data-qty] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  img,
+  video,
+  svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* iOS Safari zooms the whole page when a focused input is under 16px.
+     The layout then looks broken. This is the single most common cause. */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    font-size: max(1rem, var(--text-base));
+    color: inherit;
+  }
+
+  /* A focus ring that is genuinely visible on every ground we use. */
+  :focus-visible {
+    outline: 3px solid var(--color-stitch);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Remove the ring for pointer users but never for keyboard users. */
+  :focus:not(:focus-visible) { outline: none; }
+
+  ::selection {
+    background-color: var(--color-eggwash);
+    color: var(--color-crust);
+  }
+
+  [hidden] { display: none !important; }
+}
+
+/* ----------------------------------------------------------------------
+   Layout primitives. One container width, one spacing scale.
+   ---------------------------------------------------------------------- */
+
+@layer components {
+  .page {
+    width: 100%;
+    max-width: var(--container-page);
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 4vw, 2.5rem);
+  }
+
+  .page--wide { max-width: var(--container-wide); }
+
+  .prose-col {
+    max-width: var(--container-prose);
+  }
+
+  .prose-col p + p { margin-top: 1.15em; }
+
+  /* Vertical rhythm between major page sections. Set once, used everywhere. */
+  .band {
+    padding-block: clamp(3rem, 7vw, 6rem);
+  }
+
+  .band--tight { padding-block: clamp(2rem, 4vw, 3.25rem); }
+
+  .surface {
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+  }
+
+  /* Screen reader only, but focusable for the skip link. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: 0.5rem;
+    top: 0.5rem;
+    z-index: 100;
+    transform: translateY(-160%);
+    background: var(--color-crust);
+    color: var(--color-sesame);
+    padding: 0.65rem 1rem;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .skip-link:focus { transform: translateY(0); }
+
+  /* The count on the cart link. A seed shape, not a perfect circle. */
+  .cart-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding-inline: 0.35rem;
+    border-radius: 0.7rem;
+    background: var(--color-pomegranate);
+    color: #fff;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    line-height: 1;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   The motif: sesame, and the lean of the rows. Used structurally, never
+   as decoration sprinkled over a layout that would work without it.
+   ---------------------------------------------------------------------- */
+
+@layer components {
+  /*
+    A scattered seed line, used as a section divider. The scatter is drawn as
+    real ellipses at irregular offsets and angles rather than a repeating
+    grid, because a grid of evenly spaced dots reads as a pattern swatch and
+    hand thrown sesame does not. The tile is wide enough that the repeat is
+    not visible at any realistic column width.
+  */
+  .seed-rule {
+    height: 1.25rem;
+    border: 0;
+    margin: 0;
+    background-repeat: repeat-x;
+    background-position: center;
+    background-size: 268px 20px;
+    background-image: var(--seed-scatter);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  }
+
+  /* Denser, for the top of a card or the foot of a hero. */
+  .seed-rule--dense { background-size: 172px 20px; }
+
+  /*
+    The lean. Product cards and gallery tiles sit at the same shallow angle
+    the pieces sit at on the pan. The contents counter rotate so text stays
+    level and legible. Switched off under reduced motion preferences and at
+    the narrowest widths, where the lean costs more than it gives.
+  */
+  .lean {
+    transform: rotate(var(--row-lean));
+    transform-origin: 50% 50%;
+  }
+
+  .lean > * {
+    transform: rotate(calc(var(--row-lean) * -1));
+  }
+
+  @media (max-width: 30rem) {
+    .lean,
+    .lean > * { transform: none; }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   Motion. One orchestrated moment on load, then only motion that answers
+   a user action.
+   ---------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   Development guard rail. Outlines anything wider than the viewport so a
+   sideways scroll is impossible to miss. Stripped from production builds.
+   ---------------------------------------------------------------------- */
+
+@media (min-width: 0px) {
+  html[data-overflow-debug="on"] * {
+    outline: 1px solid color-mix(in oklab, var(--color-pomegranate) 40%, transparent);
+  }
+}

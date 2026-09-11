@@ -1,0 +1,98 @@
+/*
+  Design tokens. Single source of truth for colour, type, spacing and rhythm.
+  Everything else in this codebase reads from here. If a value is written
+  directly into a component, it is a bug.
+
+  Palette is drawn from the product itself: the baked edge, the egg wash gloss,
+  the sesame, the pomegranate, and the blue of the family cross stitch work.
+*/
+
+@theme {
+  /* ---- Colour -------------------------------------------------------- */
+  --color-crust: #3a2317; /* primary ink, the deep baked edge */
+  --color-crust-soft: #5c4132; /* secondary ink, still AA on sesame */
+  --color-eggwash: #c98a2e; /* gloss. Decorative only, fails AA on sesame */
+  --color-eggwash-ink: #8a5612; /* the same gold, dark enough to carry text */
+  --color-sesame: #efe6d2; /* page ground */
+  --color-sesame-deep: #e3d7be; /* recessed ground, wells and insets */
+  --color-pomegranate: #8e1b2e; /* one saturated accent, used rarely */
+  --color-stitch: #1b4b5a; /* links and focus rings */
+  --color-stitch-bright: #2b6f84; /* hover, and links on dark grounds */
+  --color-paper: #fbf8f1; /* raised surface */
+  --color-line: #d6c7a8; /* hairlines and rules */
+  --color-line-strong: #b9a37c; /* input borders, 3:1 against paper */
+
+  /* Status. Derived from the palette rather than bolted on from a UI kit. */
+  --color-good: #2f5d3a;
+  --color-warn: #8a5612;
+  --color-bad: #8e1b2e;
+
+  /* ---- Type ---------------------------------------------------------- */
+  --font-body: "Noto Sans Armenian", "Segoe UI", system-ui, -apple-system,
+    sans-serif;
+  --font-display: "Noto Serif Armenian", "Iowan Old Style", Georgia, serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* Fluid scale. Each step is clamped so nothing collapses at 320px or
+     runs away at 1920px. Ratios are 1.2 on mobile, opening to 1.25 wide. */
+  --text-xs: 0.8125rem; /* 13px, meta only, never body */
+  --text-sm: 0.9375rem; /* 15px */
+  --text-base: 1.0625rem; /* 17px, body default */
+  --text-lg: clamp(1.1875rem, 1.1rem + 0.35vw, 1.375rem);
+  --text-xl: clamp(1.375rem, 1.24rem + 0.6vw, 1.75rem);
+  --text-2xl: clamp(1.625rem, 1.4rem + 1.05vw, 2.25rem);
+  --text-3xl: clamp(2rem, 1.6rem + 1.9vw, 3.125rem);
+  --text-4xl: clamp(2.5rem, 1.85rem + 3vw, 4.25rem);
+
+  --leading-tight: 1.08;
+  --leading-snug: 1.25;
+  --leading-body: 1.62;
+  --leading-serif: 1.7; /* serif gets more air than sans, per the brief */
+
+  /* ---- Spacing ------------------------------------------------------- */
+  /* One scale. Do not introduce a second one. */
+  --spacing: 0.25rem;
+
+  /* ---- Layout -------------------------------------------------------- */
+  --container-page: 72rem; /* the one container width */
+  --container-prose: 38rem; /* caps body copy near 70 characters */
+  --container-wide: 84rem; /* full bleed photography only */
+
+  /* ---- Radius. Restrained. Nothing is a pill. ------------------------ */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  /* ---- Motion -------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-slow: 460ms;
+}
+
+/*
+  Elevation is deliberately NOT a set of identical soft grey drop shadows.
+  Surfaces lift with a warm hairline and a tight, warm-tinted shadow so cards
+  read as paper on a table rather than as floating browser chrome.
+*/
+:root {
+  --lift-1: 0 1px 0 0 var(--color-line);
+  --lift-2:
+    0 1px 0 0 var(--color-line), 0 2px 6px -2px rgb(58 35 23 / 0.14);
+  --lift-3:
+    0 1px 0 0 var(--color-line), 0 10px 26px -14px rgb(58 35 23 / 0.34);
+
+  /* The motif.
+
+     Hakop's gata is the rolled and sliced kind: a log of nut filling turned
+     inside dough, cut into pieces, washed gold, and scattered by hand with
+     sesame. It is not the stamped disc, so there is no stamp in this system.
+
+     What is actually distinctive on the tray is the sesame, thrown by hand so
+     no two pieces match, and the shallow lean of the rows on the sheet pan.
+     Those two things are the motif. See docs/DECISIONS.md D-004. */
+  --seed-unit: 7px;      /* long axis of one sesame seed at display size */
+  --row-lean: -7deg;     /* the lean of the rows on the pan */
+  --seed-ink: #c9b183;   /* a seed at rest on the page ground */
+}

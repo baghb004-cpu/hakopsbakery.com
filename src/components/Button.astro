@@ -1,0 +1,125 @@
+---
+/**
+ * The one button.
+ *
+ * Deliberately no arrow glyph appended to the label. The brief lists that as
+ * an AI design tell and scripts/check-copy.mjs warns about it.
+ */
+interface Props {
+  href?: string;
+  type?: "button" | "submit";
+  variant?: "primary" | "secondary" | "quiet";
+  size?: "md" | "lg";
+  disabled?: boolean;
+  class?: string;
+  id?: string;
+  rel?: string;
+  "aria-label"?: string;
+  "data-testid"?: string;
+}
+
+const {
+  href,
+  type = "button",
+  variant = "primary",
+  size = "md",
+  disabled = false,
+  class: className = "",
+  ...rest
+} = Astro.props;
+
+const Tag = href ? "a" : "button";
+const classes = `btn btn--${variant} btn--${size} ${className}`.trim();
+---
+
+<Tag
+  class={classes}
+  href={href}
+  type={href ? undefined : type}
+  disabled={href ? undefined : disabled}
+  aria-disabled={href && disabled ? "true" : undefined}
+  {...rest}
+>
+  <slot />
+</Tag>
+
+<style>
+  .btn {
+    /* 44px minimum tap target, everywhere, without exception. */
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.15rem;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-fast) var(--ease-out);
+  }
+
+  /* The press. The only motion a button makes, and it answers an action. */
+  .btn:active:not([disabled]):not([aria-disabled="true"]) {
+    transform: translateY(1px);
+  }
+
+  .btn[disabled],
+  .btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .btn--lg {
+    min-height: 52px;
+    padding: 0.8rem 1.6rem;
+    font-size: var(--text-lg);
+  }
+
+  /* ---- Variants ---- */
+
+  .btn--primary {
+    background: var(--color-crust);
+    color: var(--color-sesame);
+    border-color: var(--color-crust);
+  }
+
+  .btn--primary:hover:not([disabled]):not([aria-disabled="true"]) {
+    background: #2a170e;
+    border-color: #2a170e;
+  }
+
+  .btn--secondary {
+    background: var(--color-paper);
+    color: var(--color-crust);
+    border-color: var(--color-line-strong);
+  }
+
+  .btn--secondary:hover:not([disabled]):not([aria-disabled="true"]) {
+    border-color: var(--color-crust);
+    background: #fff;
+  }
+
+  .btn--quiet {
+    background: transparent;
+    color: var(--color-stitch);
+    border-color: transparent;
+    padding-inline: 0.4rem;
+    font-weight: 500;
+  }
+
+  .btn--quiet:hover:not([disabled]):not([aria-disabled="true"]) {
+    color: var(--color-stitch-bright);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+</style>

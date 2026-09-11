@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.astro/
+.netlify/
+.vercel/
+
+# Environment. Never commit a real one.
+# .env.example IS committed, deliberately, as documentation.
+.env
+.env.*
+!.env.example
+
+# Test and tooling output
+coverage/
+*.tsbuildinfo
+.vitest/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Scratch. Nothing in here is part of the site.
+scratch/
+*.local

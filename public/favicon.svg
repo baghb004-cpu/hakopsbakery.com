@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Hakop's Bakery">
+  <rect width="32" height="32" rx="6" fill="#3a2317"/>
+  <g fill="#efe6d2">
+    <ellipse cx="16" cy="16" rx="8.5" ry="4.2" transform="rotate(-34 16 16)"/>
+  </g>
+  <g fill="#c98a2e">
+    <ellipse cx="8.5" cy="8" rx="3.4" ry="1.7" transform="rotate(18 8.5 8)"/>
+    <ellipse cx="24" cy="24.5" rx="3.4" ry="1.7" transform="rotate(-12 24 24.5)"/>
+  </g>
+</svg>
