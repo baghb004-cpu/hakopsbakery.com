@@ -69,10 +69,17 @@ export const site = {
   /** Armenian copy ships behind a toggle in Phase 3. Section 13 of the brief. */
   altLocale: "hy-AM",
   title: `${business.name}, Armenian gata baked in Cypress, California`,
+  /*
+    This is the sentence a search result and a shared link show, so it has to
+    be true in both states. The old wording ended "Order for pickup, local
+    delivery, or shipping anywhere in the state", which invited an order the
+    site cannot take while the registration is pending. It describes the
+    business instead, and it says nothing the home page does not.
+  */
   description:
-    "Armenian gata, made by hand in small batches by Hakop Baghdasarian " +
-    "and sold direct across California. Order for pickup, local delivery, " +
-    "or shipping anywhere in the state.",
+    "Armenian gata, baked by hand by Hakop Baghdasarian in Cypress, " +
+    "California, and sold by the tray. Pickup, local delivery and shipping " +
+    "inside California.",
 } as const;
 
 /* --------------------------------------------------------------------------

@@ -99,10 +99,12 @@ export default function EmailCapture({
   const [state, setState] = useState<State>({ status: "idle" });
   const [returning, setReturning] = useState(false);
   const consentRef = useRef<HTMLInputElement | null>(null);
+  const doneRef = useRef<HTMLHeadingElement | null>(null);
 
   const Heading = (headingLevel === 3 ? "h3" : "h2") as "h2" | "h3";
   const statusId = `${fieldId}-status`;
   const consentId = `${fieldId}-consent`;
+  const consentErrorId = `${fieldId}-consent-error`;
   /* The label wraps the box and also names it explicitly, so the
      association holds for the built HTML audit and for the DOM. */
   const consentBoxId = `${fieldId}-consent-box`;
@@ -110,6 +112,20 @@ export default function EmailCapture({
   useEffect(() => {
     if (alreadyJoined()) setReturning(true);
   }, []);
+
+  /*
+    A successful signup replaces the whole form, and the submit button the
+    person was standing on goes with it, so focus falls to the body and the
+    next Tab starts again at the skip link. The live region below is no help
+    either: it arrives already carrying its text, and a region that is
+    inserted with its content is not reliably announced. Moving focus to the
+    heading does both jobs, and it only fires on a real submission, never on
+    the returning visitor who is shown the same panel on arrival.
+  */
+  const submitted = state.status === "done";
+  useEffect(() => {
+    if (submitted) doneRef.current?.focus();
+  }, [submitted]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,13 +138,17 @@ export default function EmailCapture({
       setState({ status: "failed", message: "That does not look like an email address." });
       return;
     }
+    /*
+      The consent is its own channel, deliberately not `state`. Putting it in
+      `state` marked the EMAIL box invalid, red bordered and aria-invalid,
+      because an unticked box is not a bad address, and the error a screen
+      reader read out on the email field was about the checkbox below it.
+      The message belongs beside the control that is actually wrong.
+    */
     if (!agreed) {
       setConsentError(true);
       consentRef.current?.focus();
-      setState({
-        status: "failed",
-        message: "Tick the box to say it is fine to email you when the shop opens.",
-      });
+      setState({ status: "idle" });
       return;
     }
 
@@ -154,7 +174,9 @@ export default function EmailCapture({
   if (state.status === "done" || (returning && state.status === "idle")) {
     return (
       <section className={cx(styles.island, styles.closed)} id={id} data-testid="waitlist-done">
-        <Heading className={styles.closedTitle}>You are on the list</Heading>
+        <Heading className={styles.closedTitle} ref={doneRef} tabIndex={-1}>
+          You are on the list
+        </Heading>
         <p className={styles.messageBody} role="status" aria-live="polite">
           {state.status === "done"
             ? state.message
@@ -269,7 +291,7 @@ export default function EmailCapture({
             name="consent"
             checked={agreed}
             required
-            aria-describedby={consentId}
+            aria-describedby={consentError ? `${consentId} ${consentErrorId}` : consentId}
             aria-invalid={consentError ? true : undefined}
             disabled={!hydrated || sending}
             onChange={(event) => {
@@ -281,6 +303,12 @@ export default function EmailCapture({
             {consentText}
           </span>
         </label>
+
+        {consentError && (
+          <p className={styles.errorText} id={consentErrorId} role="alert">
+            Tick the box to say it is fine to email you when the shop opens.
+          </p>
+        )}
 
         <p className={styles.note}>
           One email, the day ordering opens. The address is not shared with

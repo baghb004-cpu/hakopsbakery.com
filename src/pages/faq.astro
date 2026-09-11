@@ -46,6 +46,21 @@ const bakesEveryOtherDay =
 const deliveryZipCount = DEFAULT_DELIVERY_ZIPS.length;
 
 /*
+  The allergen list twice over, because the two are not the same sentence.
+
+  `Wheat, Milk, Egg, Almonds, Walnuts, Sesame` is the label statement and it
+  is Title Case because the label is. Running prose takes the same six words
+  in lower case with an "and", which is how every other page on this site
+  says it. Joining the label form straight into a sentence put six capitals
+  in the middle of one.
+*/
+const allergenWords = (product?.allergens ?? []).map((word) => word.toLowerCase());
+const allergensInProse =
+  allergenWords.length > 1
+    ? `${allergenWords.slice(0, -1).join(", ")} and ${allergenWords[allergenWords.length - 1]}`
+    : (allergenWords[0] ?? "wheat, milk, egg, almonds, walnuts and sesame");
+
+/*
   The jump list. Kept next to the sections it points at so that adding a
   question without listing it is obvious in review.
 */
@@ -147,7 +162,7 @@ const GROUPS = [
         <h3 id="allergens">What is in it, and what about allergies?</h3>
         <p>
           Every tray contains{" "}
-          <strong>{(product?.allergens ?? []).join(", ") || "wheat, milk, egg, almonds, walnuts and sesame"}</strong>.
+          <strong>{allergensInProse}</strong>.
           It is baked in a home kitchen that handles all of those, so cross
           contact is possible and there is no allergen free option.
         </p>
@@ -269,7 +284,8 @@ const GROUPS = [
         <h3 id="pickup">Can I pick it up?</h3>
         <p>
           Yes. Pickup is in {business.city}, and it is the simplest way to get
-          a tray: no fee, and it goes straight from the kitchen to you.
+          a tray: it goes straight from the kitchen to you on the day it is
+          baked.
         </p>
         <p class="faq__open">
           <span class="faq__open-title">Not answered yet.</span> The pickup
@@ -284,11 +300,11 @@ const GROUPS = [
           Locally, around {business.city}, in Orange County. The draft area
           covers Cypress, La Palma, Buena Park, Stanton, Los Alamitos,
           Cerritos, and parts of Anaheim and Garden Grove:{" "}
-          <span class="tabular">{deliveryZipCount}</span> postal codes in all.
+          <span class="tabular">{deliveryZipCount}</span> ZIP codes in all.
         </p>
         <p>
           That list is a first draft and {business.owner} has not confirmed how
-          far he is willing to drive. Your postal code is checked at checkout
+          far he is willing to drive. Your ZIP code is checked at checkout
           against the real list, and that check is the authority, not this
           paragraph. If delivery cannot reach you, shipping inside California
           can.

@@ -3,7 +3,7 @@
   "slug": "gata",
   "name": "Armenian Gata",
   "nameHy": "Գաթա",
-  "description": "Rolled dough with a sweet nut filling, sliced into pieces, egg washed gold, and scattered by hand with sesame seeds. Some households call it nazook, or kata. Baked in small batches in Cypress and sold by the tray.",
+  "description": "Rolled dough with a sweet nut filling, sliced into pieces, egg washed gold, and scattered by hand with sesame seeds. Some households call it nazook, or kata. Baked in Cypress and sold by the tray.",
   "descriptionHy": null,
 
   "ingredients": [
@@ -30,7 +30,7 @@
       "id": "half-tray",
       "label": "Half tray",
       "priceCents": 2800,
-      "pricingStatus": "confirmed",
+      "pricingStatus": "placeholder",
       "piecesPerUnit": null,
       "netWeightGrams": null,
       "stripePriceId": null
@@ -39,7 +39,7 @@
       "id": "full-tray",
       "label": "Full tray",
       "priceCents": 5200,
-      "pricingStatus": "confirmed",
+      "pricingStatus": "placeholder",
       "piecesPerUnit": null,
       "netWeightGrams": null,
       "stripePriceId": null

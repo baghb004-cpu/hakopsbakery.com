@@ -19,16 +19,77 @@ const DIST = join(process.cwd(), "dist");
 const RED = "\x1b[31m", YEL = "\x1b[33m", GRN = "\x1b[32m";
 const DIM = "\x1b[2m", RST = "\x1b[0m";
 
-/* Text that must appear on every single page. This is the legal one. */
+/*
+  The law asks for THREE values, not one: the home kitchen statement, the
+  county that approved the registration, and the registration number itself.
+  See docs/COMPLIANCE.md section 3 and src/config/site.ts.
+
+  This check used to look for the loose substring "made in a home kitchen",
+  which the section heading on the order page satisfies on its own, so a page
+  whose actual sentence had been replaced by a paraphrase still passed. It
+  also never looked for the county or the number at all. All three are
+  asserted now, and the statement is matched in full.
+*/
+
+/**
+ * The required sentence, read out of the one module that owns it rather than
+ * retyped here. Retyping it would mean this guard could pass while the site
+ * and the printed label disagreed, which is the failure it exists to catch.
+ */
+async function homeKitchenStatement() {
+  const source = await readFile(
+    new URL("../src/config/compliance-text.ts", import.meta.url),
+    "utf8",
+  );
+  const match = /HOME_KITCHEN_STATEMENT\s*=\s*"([^"]+)"/.exec(source);
+  if (match === null) {
+    console.error(
+      `${RED}Could not read HOME_KITCHEN_STATEMENT out of ` +
+        `src/config/compliance-text.ts. Nothing is checking the disclosure.${RST}`,
+    );
+    process.exit(1);
+  }
+  return match[1];
+}
+
+const envText = (key) => String(process.env[key] ?? "").trim();
+
+/* Text that must appear on every single page. These are the legal ones. */
 const REQUIRED_ON_EVERY_PAGE = [
   {
     id: "home-kitchen-statement",
-    needle: "made in a home kitchen",
+    needle: (await homeKitchenStatement()).toLowerCase(),
     why:
       "California requires a cottage food operation that advertises to the\n" +
-      "        public, which includes its own website, to carry this statement.",
+      "        public, which includes its own website, to carry this statement\n" +
+      "        word for word. A paraphrase does not satisfy it.",
+  },
+  {
+    /* site.ts falls back to Orange County, so a page always shows one. */
+    id: "county",
+    needle: (envText("PUBLIC_CFO_COUNTY") || "Orange County").toLowerCase(),
+    why:
+      "The county that approved the registration has to appear wherever the\n" +
+      "        operation advertises. Set PUBLIC_CFO_COUNTY to match the county.",
   },
 ];
+
+/*
+  ComplianceLine prints the number whenever the registration number and the
+  county are both configured, which is exactly `complianceIsComplete` in
+  src/config/site.ts. When there is no number the component says the
+  application is in progress instead, and there is nothing to assert.
+*/
+const REGISTRATION_NUMBER = envText("PUBLIC_CFO_REGISTRATION_NUMBER");
+if (REGISTRATION_NUMBER !== "") {
+  REQUIRED_ON_EVERY_PAGE.push({
+    id: "registration-number",
+    needle: REGISTRATION_NUMBER.toLowerCase(),
+    why:
+      "PUBLIC_CFO_REGISTRATION_NUMBER is set, so every page has to carry the\n" +
+      "        number. A page that advertises without it is out of compliance.",
+  });
+}
 
 async function* htmlFiles(dir) {
   let entries;
@@ -206,10 +267,15 @@ for await (const file of htmlFiles(DIST)) {
 
   /* ---- The legal requirement ---- */
 
-  const lower = bodyText.toLowerCase();
+  /* Collapsed, so a sentence broken across lines in the markup still reads
+     as one string here. */
+  const lower = bodyText.toLowerCase().replace(/\s+/g, " ");
   for (const rule of REQUIRED_ON_EVERY_PAGE) {
-    if (!lower.includes(rule.needle)) {
-      fail("compliance", `The required disclosure is missing from this page.\n        ${rule.why}`);
+    if (!lower.includes(rule.needle.replace(/\s+/g, " "))) {
+      fail(
+        "compliance",
+        `Required disclosure text is missing from this page: ${rule.id}.\n        ${rule.why}`,
+      );
     }
   }
 }

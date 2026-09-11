@@ -126,6 +126,25 @@ export default function FulfillmentPicker({
   const [showAllDates, setShowAllDates] = useState(false);
   const [dateNotice, setDateNotice] = useState("");
 
+  /*
+    The id of a control to put focus on after the next render.
+
+    Two of the buttons in this island delete themselves the moment they are
+    used: "Show N more days" has nothing left to show, and the "ship it
+    instead" button belongs to a refusal that the mode change clears. A
+    browser drops focus to the body when the focused element is removed, so
+    pressing either one used to send a keyboard user back to the top of the
+    document, several dozen Tab presses from where they were standing. Each
+    of them now names where focus should land instead.
+  */
+  const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
+  useEffect(() => {
+    if (pendingFocusId === null) return;
+    const target = document.getElementById(pendingFocusId);
+    setPendingFocusId(null);
+    if (target instanceof HTMLElement) target.focus();
+  }, [pendingFocusId]);
+
   const Heading = (headingLevel === 3 ? "h3" : "h2") as "h2" | "h3";
   const zipStatusId = `${id}-zip-status`;
 
@@ -222,6 +241,9 @@ export default function FulfillmentPicker({
   async function checkZip(event: FormEvent) {
     event.preventDefault();
     if (!mode || !needsZip) return;
+    /* The button stays focusable while the request is out, so a second press
+       is refused here rather than by `disabled`. */
+    if (zone.status === "checking") return;
 
     const local = isCaliforniaZip(zipDraft);
     if (!local.ok && local.reason === "malformed") {
@@ -397,10 +419,20 @@ export default function FulfillmentPicker({
               aria-invalid={zone.status === "refused" ? true : undefined}
               disabled={!hydrated}
             />
+            {/*
+              Checking is aria-disabled rather than disabled. A browser blurs
+              a focused element the moment it becomes `disabled`, so pressing
+              this button with the keyboard threw focus to the body and the
+              answer that arrived a moment later was announced to somebody
+              who was no longer anywhere near it. Empty and unhydrated stay
+              real `disabled`: neither is taken away mid press.
+            */}
             <button
               className={cx(styles.action, styles.actionSecondary)}
               type="submit"
-              disabled={!hydrated || zone.status === "checking" || zipDraft.trim().length === 0}
+              disabled={!hydrated || zipDraft.trim().length === 0}
+              aria-disabled={zone.status === "checking" || undefined}
+              aria-busy={zone.status === "checking" || undefined}
             >
               {zone.status === "checking" ? "Checking" : "Check this ZIP"}
             </button>
@@ -467,7 +499,13 @@ export default function FulfillmentPicker({
                       key={alternative}
                       className={cx(styles.action, styles.actionSecondary)}
                       type="button"
-                      onClick={() => chooseMode(alternative)}
+                      onClick={() => {
+                        chooseMode(alternative);
+                        /* This whole block disappears with the refusal that
+                           put it here. Focus follows the answer: the mode
+                           radio that is now chosen. */
+                        setPendingFocusId(`${id}-mode-${alternative}`);
+                      }}
                     >
                       {alternative === "pickup"
                         ? `Collect it in ${pickupCity}`
@@ -551,11 +589,20 @@ export default function FulfillmentPicker({
 
         {availability.status === "ready" && dates.length > 0 && (
           <>
-            {dateNotice && (
-              <p className={cx(styles.status, styles.statusBad)} role="status" aria-live="polite">
-                {dateNotice}
-              </p>
-            )}
+            {/*
+              The region is on the wrapper and the wrapper is always here. A
+              live region that arrives already carrying its text is not
+              announced by most screen readers: they watch regions that
+              exist for a change, they do not read new ones. So the notice
+              that a chosen bake day has filled up, which is the one thing
+              this island exists to say, used to be silent. An empty div has
+              no height, so nothing moves when there is nothing to say.
+            */}
+            <div role="status" aria-live="polite">
+              {dateNotice && (
+                <p className={cx(styles.status, styles.statusBad)}>{dateNotice}</p>
+              )}
+            </div>
 
             <ul className={cx(styles.options, styles.optionsGrid)}>
               {shown.map((date) => {
@@ -609,7 +656,14 @@ export default function FulfillmentPicker({
                 <button
                   className={cx(styles.action, styles.actionQuiet)}
                   type="button"
-                  onClick={() => setShowAllDates(true)}
+                  onClick={() => {
+                    setShowAllDates(true);
+                    /* This button is gone the instant it is pressed, so it
+                       hands focus to the first day it just revealed. That is
+                       also the one thing the person pressed it to reach. */
+                    const first = dates.slice(VISIBLE_DATES).find((date) => date.selectable);
+                    if (first) setPendingFocusId(`${id}-date-${first.date}`);
+                  }}
                 >
                   Show {hiddenCount} more days
                 </button>

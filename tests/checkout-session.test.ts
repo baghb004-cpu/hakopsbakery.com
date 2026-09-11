@@ -616,12 +616,21 @@ describe("the real catalog on disk", () => {
     /*
       Both tray prices carry pricingStatus "placeholder" (brief open decision
       5) and no piece count has been taken, so the shop cannot legitimately
-      sell either one today. This test fails the day one of those is fixed,
-      which is the reminder to fix the other and to update this expectation.
+      sell either one today.
+
+      Both guards are asserted, not just the first refusal. Accepting either
+      code let one of them be switched off without a test noticing, which is
+      exactly what happened: the catalog carried "confirmed" prices while this
+      file, docs/DECISIONS.md and the product's own internalTodo all still
+      said placeholder, and only the missing piece count was refusing the
+      sale. This fails the day either is fixed, which is the reminder to fix
+      the other and to update this expectation.
     */
+    expect(variant.pricingStatus).toBe("placeholder");
+    expect(variant.piecesPerUnit).toBeNull();
     expect(resolved.ok).toBe(false);
     if (!resolved.ok) {
-      expect(["placeholder-price", "pieces-not-counted"]).toContain(resolved.code);
+      expect(resolved.code).toBe("placeholder-price");
     }
   });
 });

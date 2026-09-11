@@ -372,11 +372,19 @@
     transform var(--dur-fast) var(--ease-out);
 }
 
-.action:active:not(:disabled) {
+.action:active:not(:disabled):not([aria-disabled="true"]) {
   transform: translateY(1px);
 }
 
-.action:disabled {
+/*
+  aria-disabled is here alongside disabled because the two buttons that go
+  out to the network stay focusable while they wait. A browser blurs a
+  focused element the moment it is given `disabled`, and losing focus in the
+  middle of paying is not a state anyone can recover from with a keyboard.
+  They look the same. Only one of them can still be reached.
+*/
+.action:disabled,
+.action[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.55;
 }

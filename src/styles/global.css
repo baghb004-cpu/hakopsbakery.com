@@ -20,6 +20,27 @@
     scroll-padding-top: 5.5rem;
   }
 
+  /*
+    The other end of the same problem, and it was missing.
+
+    Below 48rem a product page carries the sticky order bar, 64px of it, held
+    against the bottom edge. A browser only scrolls a newly focused control
+    into view when it is not already inside the viewport, so a control whose
+    bottom sits exactly on the bottom edge is left where it is, underneath
+    the bar. Tabbing to "Tell me when ordering opens" on a 320 by 640 phone
+    put 97 percent of the button, focus ring and all, behind it.
+
+    scroll-padding-bottom widens what counts as "in view", so the browser
+    scrolls the last 88px into the clear. Scoped with :has() to the pages
+    that actually have a bar, and to the widths where it is not display:none,
+    so no other page gains a gap it has no use for.
+  */
+  @media (max-width: 47.99rem) {
+    html:has([data-order-bar]) {
+      scroll-padding-bottom: 5.5rem;
+    }
+  }
+
   body {
     margin: 0;
     background-color: var(--color-sesame);
@@ -44,6 +65,11 @@
     letter-spacing: -0.014em;
     text-wrap: balance;
     margin: 0;
+    /* A heading is a couple of long words in a large display face, so at 200
+       percent text on a 320px screen one word can be wider than the column.
+       Breaking a word looks poor; losing the end of it behind a clipped edge
+       is worse. `break-word` only breaks when there is no other way to fit. */
+    overflow-wrap: break-word;
   }
 
   h1 { font-size: var(--text-4xl); }
@@ -91,6 +117,24 @@
   }
 
   a:hover { color: var(--color-link-bright); }
+
+  /*
+    An email address is one unbreakable token, and it is the longest word on
+    this site. At 320px with the browser font size set to its largest,
+    hello@hakopsbakery.com measures 308px against a 272px column, and because
+    `body` clips rather than scrolls the end of the address is simply lost.
+    On a legal page it is worse than cosmetic: the contents nav shares a grid
+    column with the prose, the column is sized from the prose's min-content,
+    and one address drags the whole page 64px past the right hand edge.
+
+    `anywhere` rather than `break-word`, and the difference is the whole
+    point: only `anywhere` lowers the min-content size the grid is measuring.
+    `break-word` would let the address wrap once it was too late.
+  */
+  a[href^="mailto:"],
+  a[href^="tel:"] {
+    overflow-wrap: anywhere;
+  }
 
   /* Numbers must not jitter when a quantity or a price changes. */
   .tabular,

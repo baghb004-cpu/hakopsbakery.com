@@ -75,7 +75,7 @@ const TOC = [
 
   <p>
     Kept with the order: what you bought, the bake date you chose, the
-    fulfilment method, and the cottage food disclosure you ticked along with
+    fulfillment method, and the cottage food disclosure you ticked along with
     the version of its wording. That record is what makes a refund or a
     question about an old order answerable.
   </p>
@@ -134,10 +134,32 @@ const TOC = [
   </p>
 
   <p>
-    Two things are stored inside your own browser rather than on a server: what
-    is in your cart, and whether this browser has already joined the waiting
-    list. Both stay on your device, neither is readable by us, and clearing
-    your browser data removes them.
+    Three things are stored inside your own browser rather than on a server,
+    and here is all of it:
+  </p>
+
+  <ul>
+    <li>
+      Your cart. What is in it, the fulfillment method you picked, the ZIP you
+      typed and the bake date you chose.
+    </li>
+    <li>
+      If you joined the waiting list, the address you used and the moment you
+      used it, so this browser knows not to ask you again.
+    </li>
+    <li>
+      If you have opened the checkout page, a random reference for that
+      attempt. It is created when the page loads, before you tick or type
+      anything, so that coming back after a failed payment continues the same
+      order rather than starting a second one. Once you tick the home kitchen
+      box it also holds the version of that wording, the moment you ticked it,
+      and the order reference the server gives back.
+    </li>
+  </ul>
+
+  <p>
+    All of it stays on your device, none of it is readable by us, and clearing
+    your browser data removes it.
   </p>
 
   <p>

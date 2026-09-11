@@ -123,6 +123,7 @@ export default function CheckoutGate({
   const baseId = useId();
   const titleId = `${baseId}-title`;
   const consentDetailId = `${baseId}-consent`;
+  const consentErrorId = `${baseId}-consent-error`;
   /* The label wraps the box and also names it explicitly, so the association
      holds for the built HTML audit and for anything that reads the DOM. */
   const consentBoxId = `${baseId}-consent-box`;
@@ -186,16 +187,21 @@ export default function CheckoutGate({
   /* ---------------------------------------------------------------- */
 
   async function onSubmit() {
+    /* The button stays focusable while a request is in flight, so it has to
+       refuse a second press itself rather than leaning on `disabled`. */
+    if (busy) return;
+    /*
+      One alert, next to the box that is wrong, and focus moved onto it.
+      Setting a failed submission here as well fired a second role="alert"
+      in the same tick saying the same thing further down the page, and a
+      screen reader read both. The unticked box is not a failed order: no
+      request was made and there is nothing to say about the cart or the
+      card.
+    */
     if (!agreed) {
       setConsentError(true);
+      setSubmission({ status: "idle" });
       consentRef.current?.focus();
-      setSubmission({
-        status: "failed",
-        title: "One box is still unticked",
-        message:
-          "The home kitchen acknowledgement has to be ticked before an order " +
-          "can be taken. It is a condition of the registration, not a marketing box.",
-      });
       return;
     }
     /* mode and bakeDate are named again rather than leaning on `ready`,
@@ -409,7 +415,9 @@ export default function CheckoutGate({
           name="home-kitchen-acknowledgement"
           checked={agreed}
           required
-          aria-describedby={consentDetailId}
+          aria-describedby={
+            consentError ? `${consentDetailId} ${consentErrorId}` : consentDetailId
+          }
           aria-invalid={consentError ? true : undefined}
           disabled={!hydrated || busy}
           onChange={(event) => {
@@ -427,17 +435,31 @@ export default function CheckoutGate({
       </label>
 
       {consentError && (
-        <p className={styles.errorText} role="alert">
+        <p className={styles.errorText} id={consentErrorId} role="alert">
           The acknowledgement has to be ticked before you can pay.
         </p>
       )}
 
       <div className={styles.actions}>
+        {/*
+          Busy is aria-disabled, not disabled, and the difference matters on
+          the one control on this site that takes money. A focused element
+          that becomes `disabled` is blurred by the browser, so pressing
+          Enter here used to throw focus to the body: the person waiting for
+          Stripe had to Tab from the skip link back down the whole page to
+          reach the error message when it failed. aria-disabled keeps the
+          button focusable and says the same thing to a screen reader, and
+          `onSubmit` refuses a second press itself.
+
+          `disabled` is still right for the two states that are not
+          transient. Nothing is taken away from under anyone there.
+        */}
         <button
           className={cx(styles.action, styles.actionPrimary, styles.actionLarge)}
           type="button"
           onClick={() => void onSubmit()}
-          disabled={!hydrated || busy || cart.lines.length === 0}
+          disabled={!hydrated || cart.lines.length === 0}
+          aria-disabled={busy || undefined}
           aria-busy={busy || undefined}
         >
           {submission.status === "checking" && "Checking the address"}

@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { calendarYearIn } from "../src/lib/bake-schedule";
 import {
   capContribution,
   capContributionFromSession,
@@ -200,7 +201,10 @@ describe("through the webhook", () => {
     expect(order?.amountTaxCents).toBe(455);
     expect(order?.capContributionCents).toBe(6400);
 
-    const yearToDate = await bench.store.capTotalCents(FRIDAY_MORNING.getUTCFullYear());
+    const yearToDate = await bench.store.capTotalCents(
+      calendarYearIn(FRIDAY_MORNING, "America/Los_Angeles"),
+      "America/Los_Angeles",
+    );
     expect(yearToDate).toBe(6400);
   });
 });

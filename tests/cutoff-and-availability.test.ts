@@ -282,7 +282,7 @@ describe("check-availability", () => {
       expiresAt: now.getTime() - 1,
       now: now.getTime() - 2,
     });
-    await bench.store.confirmHold("hold_paid", "HB-PAID");
+    await bench.store.confirmHold("hold_paid", "HB-PAID", now.getTime());
 
     const body = await readBody(
       await handleCheckAvailability(get("/api/check-availability?date=2026-09-13"), deps),

@@ -38,8 +38,11 @@ const {
   title,
   lede,
   status,
-  alt = "Rows of gata on the tray, cut faces showing the nut filling turned " +
-    "inside the dough, sesame seeds caught in the gold egg wash.",
+  /* The same sentence the catalog carries for this photograph. One image gets
+     one description, so a reader moving between pages is not told about the
+     same tray three slightly different ways. */
+  alt = "Close up of gata on the tray, the cut faces showing nut filling " +
+    "turned inside the dough, sesame seeds caught in the gold egg wash.",
   class: className = "",
 } = Astro.props;
 

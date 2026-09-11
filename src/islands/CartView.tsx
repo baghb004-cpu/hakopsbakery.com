@@ -19,7 +19,7 @@
  * server side, from the same catalog. Section 4 of docs/ARCHITECTURE.md.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clearCart, removeLine, setQty, type CartLine } from "@lib/cart";
 import { multiplyMoney, sumMoney } from "@lib/money";
 import styles from "./islands.module.css";
@@ -80,6 +80,26 @@ export default function CartView({
   const hydrated = useHydrated();
   const cart = useCart();
   const [announcement, setAnnouncement] = useState("");
+
+  /*
+    Removing a line takes away the button that was pressed to remove it, and
+    a browser answers that by dropping focus on the body: the next Tab starts
+    again at the skip link, several dozen presses above the cart. Worse, when
+    the last line goes the whole island swaps to the empty state, which
+    carries its own live region, and a live region that arrives with its text
+    already in it is not announced. So the removal was both silent and
+    disorienting.
+
+    Focus goes to the heading, which is the one element present in both
+    states and which says which state you are now in.
+  */
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const [focusHeading, setFocusHeading] = useState(false);
+  useEffect(() => {
+    if (!focusHeading) return;
+    setFocusHeading(false);
+    headingRef.current?.focus();
+  }, [focusHeading]);
 
   const Heading = (headingLevel === 3 ? "h3" : "h2") as "h2" | "h3";
 
@@ -150,7 +170,9 @@ export default function CartView({
     return (
       <div className={cx(styles.island, styles.islandWide)} data-testid="cart-closed">
         <div className={cx(styles.closed)}>
-          <Heading className={styles.closedTitle}>Not yet taking orders</Heading>
+          <Heading className={styles.closedTitle} ref={headingRef} tabIndex={-1}>
+            Not yet taking orders
+          </Heading>
           <p className={styles.messageBody}>
             The cottage food registration is still with the county, so payment
             is switched off. Nothing has been charged and nothing is held.
@@ -186,6 +208,8 @@ export default function CartView({
                 onClick={() => {
                   clearCart();
                   setAnnouncement("The saved cart is empty now.");
+                  /* Emptying the cart removes this button. */
+                  setFocusHeading(true);
                 }}
               >
                 Empty the saved cart
@@ -209,7 +233,9 @@ export default function CartView({
     return (
       <div className={cx(styles.island, styles.islandWide)} data-testid="cart-empty">
         <div className={styles.head}>
-          <Heading className={styles.title}>Your cart is empty</Heading>
+          <Heading className={styles.title} ref={headingRef} tabIndex={-1}>
+            Your cart is empty
+          </Heading>
         </div>
         <p className={styles.lede}>Nothing is in it yet. The trays are this way.</p>
         <div className={styles.actions}>
@@ -236,12 +262,17 @@ export default function CartView({
         ? `${label} removed from the cart.`
         : `${label}, ${plural(bounded, unit.one, unit.many)} in the cart.`,
     );
+    /* Typing a zero into the quantity box removes the line, and the box with
+       it. Same rescue as the remove button. */
+    if (bounded === 0) setFocusHeading(true);
   }
 
   return (
     <div className={cx(styles.island, styles.islandWide)} data-testid="cart">
       <div className={styles.head}>
-        <Heading className={styles.title}>Your cart</Heading>
+        <Heading className={styles.title} ref={headingRef} tabIndex={-1}>
+          Your cart
+        </Heading>
         <p className={styles.note}>{plural(itemCount, unit.one, unit.many)}</p>
       </div>
 
@@ -327,6 +358,8 @@ export default function CartView({
                     onClick={() => {
                       removeLine(line.sku, line.variantId);
                       setAnnouncement(`${label} removed from the cart.`);
+                      /* This button goes with the row it removes. */
+                      setFocusHeading(true);
                     }}
                   >
                     <span aria-hidden="true">Remove</span>

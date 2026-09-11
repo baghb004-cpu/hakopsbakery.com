@@ -31,6 +31,7 @@
  */
 
 import type { Context } from "@netlify/functions";
+import { calendarYearIn } from "@lib/bake-schedule";
 import { isCaliforniaZip } from "@lib/california";
 import { isInDeliveryArea } from "@lib/zones";
 import type { FulfillmentConfig, FulfillmentMode } from "@lib/zones";
@@ -469,7 +470,7 @@ async function onSessionCompleted(
   /* The order stands. ------------------------------------------------ */
 
   if (holdId !== null && holdId !== "") {
-    const held = await deps.store.confirmHold(holdId, orderRef);
+    const held = await deps.store.confirmHold(holdId, orderRef, now.getTime());
     if (!held) {
       /*
         Paid, but the hold behind it is gone: it expired, or something
@@ -748,7 +749,17 @@ async function checkAnnualCap(
   orderRef: string,
   sessionId: string,
 ): Promise<void> {
-  const used = await deps.store.capTotalCents(now.getUTCFullYear());
+  /*
+    The ceiling is measured over the shop's calendar year, not the server's.
+    A Netlify function runs in UTC, so an order taken at six in the evening
+    on the thirty first of December in Cypress is already the first of
+    January to `getUTCFullYear`, and reading the year off that clock files
+    the last eight hours of the year's takings under the year that has not
+    started. That is the direction that matters: the year being measured
+    stops growing while sales are still being made against it.
+  */
+  const year = calendarYearIn(now, deps.settings.timeZone);
+  const used = await deps.store.capTotalCents(year, deps.settings.timeZone);
   const meter = capMeter(used, deps.settings.annualCapCents);
   if (meter.level === "ok") return;
 

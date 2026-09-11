@@ -187,7 +187,7 @@ describe("the capacity store", () => {
       expiresAt: now - 1,
       now: now - 2,
     });
-    await store.confirmHold("hold_paid", "HB-PAID");
+    await store.confirmHold("hold_paid", "HB-PAID", now);
 
     const committed = await store.committedOrders(now);
     expect(committed).toHaveLength(1);
@@ -197,7 +197,7 @@ describe("the capacity store", () => {
   it("never releases a hold that belongs to a paid order", async () => {
     const store = createMemoryOrderStore();
     await reserve(store, "hold_paid", 24);
-    await store.confirmHold("hold_paid", "HB-PAID");
+    await store.confirmHold("hold_paid", "HB-PAID", now);
     await store.releaseHold("hold_paid");
     expect(store.state.holds.has("hold_paid")).toBe(true);
   });
@@ -238,7 +238,7 @@ describe("the capacity store", () => {
       capContributionCents: 0,
     });
 
-    expect(await store.capTotalCents(2026)).toBe(6400);
-    expect(capMeter(await store.capTotalCents(2026), 8_600_000).level).toBe("ok");
+    expect(await store.capTotalCents(2026, "America/Los_Angeles")).toBe(6400);
+    expect(capMeter(await store.capTotalCents(2026, "America/Los_Angeles"), 8_600_000).level).toBe("ok");
   });
 });

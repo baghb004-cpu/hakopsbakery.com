@@ -27,6 +27,7 @@
  * statement inside one transaction. In memory it is one synchronous block.
  */
 
+import { calendarYearIn } from "@lib/bake-schedule";
 import type { CommittedOrder, IsoDate } from "@lib/bake-schedule";
 
 /* ------------------------------------------------------------------ */
@@ -147,11 +148,18 @@ export interface OrderStore {
   reserve(input: ReserveInput): Promise<ReserveResult>;
   releaseHold(holdId: string): Promise<void>;
   /**
-   * Mark the hold behind a paid order as confirmed. False means there was no
-   * live hold to confirm, which is a paid order holding no capacity, and the
-   * caller must raise that rather than let a bake day be quietly oversold.
+   * Mark the hold behind a paid order as confirmed. A confirmed hold claims
+   * its pieces for good, expiry or not, because the order is paid and the
+   * pieces are really going to be baked.
+   *
+   * False means there was no LIVE hold to confirm: either nothing under that
+   * id, or one that had already expired and released its pieces back to the
+   * date. Either way the date may have been sold to somebody else in the
+   * meantime, so the caller must raise it rather than let a bake day be
+   * quietly oversold. An expired hold is still confirmed on the way out, so
+   * that its pieces start counting again and the date is not oversold twice.
    */
-  confirmHold(holdId: string, orderRef: string): Promise<boolean>;
+  confirmHold(holdId: string, orderRef: string, now: number): Promise<boolean>;
 
   /**
    * Claim a Stripe event id. "fresh" means this process owns it and must
@@ -168,8 +176,16 @@ export interface OrderStore {
 
   saveSubscriber(subscriber: Subscriber): Promise<"created" | "existing">;
 
-  /** Product plus shipping, excluding tax, for one calendar year. */
-  capTotalCents(year: number): Promise<number>;
+  /**
+   * Product plus shipping, excluding tax, for one calendar year.
+   *
+   * The year is the shop's calendar year, so the timezone is part of the
+   * question rather than something the caller and the store each assume
+   * separately. An order placed on the evening of the thirty first of
+   * December in Cypress belongs to that year, not to the UTC one that has
+   * already started.
+   */
+  capTotalCents(year: number, timeZone: string): Promise<number>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -276,7 +292,17 @@ export function createMemoryOrderStore(): MemoryOrderStore {
         };
       }
 
-      const committed = livePieces(state, input.bakeDate, input.now) - (existing?.pieces ?? 0);
+      /*
+        Reaching here means there is no live hold under this id: either
+        nothing at all, or one that expired unconfirmed. livePieces already
+        skips an expired unconfirmed hold, so its pieces must NOT be
+        subtracted again. Subtracting them a second time undercounts what the
+        date is carrying and lets a returning customer with the same cart, and
+        therefore the same hold id, reserve pieces that somebody else has
+        already bought. The Supabase statement sketched at the foot of this
+        file has no such subtraction, which is the behaviour to match.
+      */
+      const committed = livePieces(state, input.bakeDate, input.now);
       const remainingBefore = Math.max(0, input.capacityPieces - Math.max(0, committed));
       if (input.pieces > remainingBefore) {
         return { ok: false, reason: "sold-out", remainingPieces: remainingBefore };
@@ -301,11 +327,21 @@ export function createMemoryOrderStore(): MemoryOrderStore {
       state.holds.delete(holdId);
     },
 
-    async confirmHold(holdId, orderRef) {
+    async confirmHold(holdId, orderRef, now) {
       const hold = state.holds.get(holdId);
       if (hold === undefined) return false;
+      /*
+        An unconfirmed hold that is past its expiry stopped counting against
+        the date the moment it lapsed, so the pieces it was holding may
+        already have been sold to somebody else. Confirm it anyway, because
+        the order is paid and the pieces are real, but report that there was
+        no live hold so the caller flags the date for a human. Answering true
+        here is how a bake day gets quietly oversold: it is exactly the case
+        the caller is watching for.
+      */
+      const wasLive = hold.confirmed || hold.expiresAt > now;
       state.holds.set(holdId, { ...hold, confirmed: true, orderRef });
-      return true;
+      return wasLive;
     },
 
     async beginEvent(eventId, now) {
@@ -360,11 +396,17 @@ export function createMemoryOrderStore(): MemoryOrderStore {
       return "created";
     },
 
-    async capTotalCents(year) {
+    async capTotalCents(year, timeZone) {
       let total = 0;
       for (const order of state.orders.values()) {
         if (order.status !== "paid") continue;
-        if (new Date(order.createdAt).getUTCFullYear() !== year) continue;
+        const createdAt = new Date(order.createdAt);
+        // An unreadable timestamp cannot be filed under any year. Skipping it
+        // is what the previous UTC comparison did too, and a thrown error
+        // inside a webhook would be worse than a figure that is short by one
+        // order Hakop can see in the admin.
+        if (Number.isNaN(createdAt.getTime())) continue;
+        if (calendarYearIn(createdAt, timeZone) !== year) continue;
         total += order.capContributionCents;
       }
       return total;
@@ -421,8 +463,18 @@ export function defaultOrderStore(): OrderStore {
      later and the row is not confirmed. Each retry creates a session with a
      later expiry, and the hold must outlive every session it backs.
 
-     confirmHold returns whether it actually updated a row. False is a paid
-     order with no capacity behind it and the webhook flags it.
+     confirmHold sets confirmed on the row and returns whether that row was
+     still LIVE, which is `confirmed or expires_at > now()` read in the same
+     statement:
+
+       update capacity_holds
+          set confirmed = true, order_ref = $2
+        where hold_id = $1
+       returning (confirmed or expires_at > now()) as was_live;
+
+     No row, or was_live false, is a paid order whose capacity had already
+     gone back to the date, and the webhook flags it. Returning true just
+     because a row was updated hides an oversold bake day.
 
   2. orders
        order_ref text primary key,

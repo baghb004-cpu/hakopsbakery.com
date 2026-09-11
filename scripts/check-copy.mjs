@@ -7,6 +7,7 @@
      actual trade secret and must never enter this repository, its history,
      its comments, its alt text, or a commit message. Brief Section 4.
   3. No AI design tells in shipped copy. Brief Section 6.
+  4. No banned vocabulary in shipped copy. Brief Section 17.
 
   Jobs 1 and 2 fail the build. Job 3 warns, because a few of its patterns
   have legitimate uses and a human should make the call.
@@ -46,6 +47,33 @@ const UNITS = "g|kg|gram|grams|oz|ounce|ounces|lb|lbs|tsp|tbsp|teaspoon|tablespo
 const METHOD_VERBS =
   "knead|proof|laminate|preheat|roll out|rest the dough|fold the dough|" +
   "chill the dough|cream the butter|whisk until|beat until|bake at";
+
+/*
+  Section 17 of the brief bans a short list outright. The rest of this list is
+  the vocabulary that makes copy read as though a machine wrote it: words that
+  describe no particular bakery and could be lifted onto any other one.
+
+  Warnings, not failures. "Craft" has an honest trade meaning and "passion"
+  can appear in a quotation, so a person makes the call. `copy-guard: allow`
+  on the line silences it.
+*/
+const BANNED_WORDS =
+  "artisanal|artisan|artisanally|crafted|craftsmanship|handcrafted|" +
+  "passion|passionate|journey|nestled|elevate|elevated|elevating|delve|" +
+  "tapestry|curated|bespoke|lovingly|time-honored|time-honoured|" +
+  "seamless|unlock|embark|vibrant|meticulous|meticulously|indulge|" +
+  "decadent|symphony|medley|savor the|savour the";
+
+/* The same tell at sentence length rather than word length. */
+const BANNED_CONSTRUCTIONS =
+  /\b(?:not just [a-z]+,? but|more than just|whether you(?:'re| are)\b[^.\n]{0,60}\bor\b|in today's|a testament to|at the heart of)/gi;
+
+/*
+  Rules tagged `only` run on shipped copy rather than on the whole tree. A
+  security comment about "a crafted request" is not a marketing cliche, and
+  neither is `!==` in a test.
+*/
+const COPY_FILES = /^src\/(?:pages|components|layouts|islands|content|config)\//;
 
 const HARD = [
   {
@@ -107,6 +135,31 @@ const SOFT = [
     re: /#(?:F4F1EA|f4f1ea|D97757|d97757)\b/g,
     msg: "The cream and terracotta combination the brief names as the 2026 tell.",
   },
+  {
+    id: "banned-vocabulary",
+    only: COPY_FILES,
+    re: new RegExp(`\\b(?:${BANNED_WORDS})\\b`, "gi"),
+    msg:
+      "A word from the banned list in Section 17 of the brief, or one of the\n" +
+      "        machine writing tells that reads the same way. Say a concrete true\n" +
+      "        thing about this bakery instead.",
+  },
+  {
+    id: "banned-construction",
+    only: COPY_FILES,
+    re: BANNED_CONSTRUCTIONS,
+    msg:
+      "A sentence shape that could sit on any bakery's website. Brief Section\n" +
+      "        17 asks for a working baker's voice. Rewrite it as something only\n" +
+      "        true of this bakery.",
+  },
+  {
+    id: "exclamation-mark",
+    only: COPY_FILES,
+    // A bang closing a word, which is prose. Never `!==`, `!x` or `foo!.bar`.
+    re: /[A-Za-z0-9,)"']!(?=[\s"'<)]|$)/g,
+    msg: "Exclamation mark. Brief Section 17 does not allow one in copy.",
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -137,6 +190,7 @@ for await (const file of walk(ROOT)) {
 
   const run = (rules, sink) => {
     for (const rule of rules) {
+      if (rule.only && !rule.only.test(rel)) continue;
       for (const [i, line] of lines.entries()) {
         // Per line opt out, for the rare legitimate case.
         if (line.includes("copy-guard: allow") || line.includes("copy-guard: net-weight")) continue;

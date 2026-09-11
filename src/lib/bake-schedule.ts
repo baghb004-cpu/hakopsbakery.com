@@ -397,6 +397,19 @@ export function toCalendarDate(instant: Date, timeZone: string): IsoDate {
 }
 
 /**
+ * Which calendar year an instant falls in, in the shop's timezone.
+ *
+ * The Class A annual gross sales ceiling is measured over a calendar year,
+ * and the calendar that matters is the one on the wall in Cypress. A sale
+ * rung up at six in the evening on the thirty first of December is already
+ * the next day in UTC, so reading the year off a UTC clock files eight hours
+ * of takings under the wrong year every December.
+ */
+export function calendarYearIn(instant: Date, timeZone: string): number {
+  return Number(toCalendarDate(instant, timeZone).slice(0, 4));
+}
+
+/**
  * Civil date arithmetic, done in UTC on purpose.
  *
  * A UTC day is always exactly 86400000 milliseconds because UTC has no
