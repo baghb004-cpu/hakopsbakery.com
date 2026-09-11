@@ -143,6 +143,17 @@ const SWITCH = "(min-width: 48rem)";
 
   .hero__frame {
     position: relative;
+    /*
+      width must be stated, not left to auto.
+
+      With an auto width, an aspect ratio and a max-height, the height hits
+      the cap first and the ratio then back-computes the WIDTH from it. On a
+      390 by 844 phone that worked out at 348px, so the frame quietly gave up
+      42px and the full bleed above stopped reaching the right hand edge.
+      Pinning the width means the cap only ever clips the height, which is
+      what a max-height is for.
+    */
+    width: 100%;
     aspect-ratio: 700 / 950;
     /* Tall enough to be the subject, short enough that the order action is
        still on screen on a small phone. Never vh: it breaks under the
