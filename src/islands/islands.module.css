@@ -1,0 +1,768 @@
+/*
+  Styles for the five React islands.
+
+  One stylesheet rather than five, because the islands share their controls:
+  a fieldset of options in the fulfillment picker is the same object as a
+  fieldset of tray sizes in the add to cart control, and giving them two
+  definitions is how they drift apart.
+
+  Every value here is a token from src/styles/tokens.css. There is no raw hex
+  in this file and no second spacing scale.
+
+  Three things this file deliberately does not do:
+
+    1. No identical rounded card with a soft grey shadow. Surfaces lift with
+       the warm hairline and the warm tinted shadow the token set defines,
+       and the option rows lift with an inset rule rather than a box.
+    2. No entrance animation. The only motion is the pulse on a loading
+       placeholder and the press on a button, and both answer something the
+       customer did or is waiting for.
+    3. No height in vh. The islands sit in normal page flow and never claim a
+       viewport.
+*/
+
+/* ------------------------------------------------------------------ */
+/* Shell                                                               */
+/* ------------------------------------------------------------------ */
+
+.island {
+  /* Body copy stays under about 70 characters without a wrapper element. */
+  max-width: var(--container-prose);
+  color: var(--color-crust);
+}
+
+/* The cart is a table of goods, not a column of prose, so it gets the page. */
+.islandWide {
+  max-width: none;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  margin: 0;
+}
+
+.lede {
+  color: var(--color-crust-soft);
+  margin: 0 0 1rem;
+}
+
+.note {
+  color: var(--color-crust-soft);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+/* A hairline rule between the sections of one island. */
+.rule {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  margin: 1.25rem 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fields                                                              */
+/* ------------------------------------------------------------------ */
+
+.field {
+  display: block;
+  margin-block: 1rem;
+}
+
+.fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  min-width: 0; /* a fieldset will not shrink below its content otherwise */
+}
+
+.legend,
+.label {
+  display: block;
+  font-weight: 600;
+  font-size: var(--text-base);
+  padding: 0;
+  margin-bottom: 0.5rem;
+}
+
+.hint {
+  display: block;
+  color: var(--color-crust-soft);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  margin-bottom: 0.5rem;
+}
+
+.input {
+  display: block;
+  width: 100%;
+  max-width: 18rem;
+  min-height: 44px;
+  padding: 0.55rem 0.7rem;
+  background: var(--color-paper);
+  color: var(--color-crust);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  /* 16px is the floor. Below it, iOS Safari zooms the page on focus. */
+  font-family: var(--font-body);
+  font-size: max(1rem, var(--text-base));
+}
+
+.input::placeholder {
+  color: var(--color-crust-soft);
+  opacity: 0.75;
+}
+
+.input:disabled {
+  background: var(--color-sesame-deep);
+  cursor: not-allowed;
+}
+
+.inputInvalid {
+  border-color: var(--color-bad);
+  border-width: 2px;
+}
+
+/* A field and the button that acts on it, side by side, wrapping when tight. */
+.inputRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.inputRow .input {
+  flex: 1 1 9rem;
+  max-width: 12rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Options: tray sizes, fulfillment modes, bake dates, pickup windows  */
+/* ------------------------------------------------------------------ */
+
+.options {
+  display: grid;
+  gap: 0.5rem; /* never less than the 8px minimum between tap targets */
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Dates are short and there are a lot of them, so they may sit two up. */
+.optionsGrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+}
+
+.option {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-height: 44px;
+  padding: 0.6rem 0.75rem 0.6rem 0.7rem;
+  background: var(--color-paper);
+  /* The selected state is a rule down the left edge, in the same gold as the
+     egg wash. It is a mark on the side of the row, not a floating card. */
+  border: 1px solid var(--color-line);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.option:hover {
+  border-color: var(--color-line-strong);
+}
+
+.optionSelected {
+  border-left-color: var(--color-eggwash);
+  background: var(--color-sesame-deep);
+  border-color: var(--color-line-strong);
+}
+
+.optionDisabled {
+  cursor: not-allowed;
+  background: transparent;
+  border-style: dashed;
+  color: var(--color-crust-soft);
+}
+
+.optionDisabled:hover {
+  border-color: var(--color-line);
+}
+
+/* The control itself stays a real radio. Nothing here is a div pretending. */
+.optionInput {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0.15rem 0 0;
+  accent-color: var(--color-crust);
+}
+
+.optionBody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+  min-width: 0; /* lets long labels wrap instead of pushing the row wide */
+  flex: 1 1 auto;
+}
+
+.optionLabel {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.optionMeta {
+  color: var(--color-crust-soft);
+  font-size: var(--text-sm);
+  flex-basis: 100%;
+}
+
+.optionPrice {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+/*
+  The state of a bake date, in words. Never colour alone: "Sold out" is the
+  word "Sold out", and the dashed border and the disabled control say the
+  same thing a third time.
+*/
+.optionState {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-warn);
+  white-space: nowrap;
+}
+
+.optionStateGone {
+  color: var(--color-bad);
+}
+
+/* ------------------------------------------------------------------ */
+/* Quantity stepper                                                    */
+/* ------------------------------------------------------------------ */
+
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  overflow: hidden;
+}
+
+.step {
+  /* 44 by 44, with no exception, on every one of these. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 0.6rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-crust);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.step:hover:not(:disabled) {
+  background: var(--color-sesame-deep);
+}
+
+.step:disabled {
+  color: var(--color-crust-soft);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qtyInput {
+  width: 3.5rem;
+  min-height: 44px;
+  padding: 0 0.35rem;
+  border: 0;
+  border-inline: 1px solid var(--color-line);
+  background: var(--color-paper);
+  color: var(--color-crust);
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: max(1rem, var(--text-base));
+  font-weight: 600;
+  /* Spinners inside a 44px control are a 12px tap target. The buttons are
+     the control. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.qtyInput::-webkit-outer-spin-button,
+.qtyInput::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons                                                             */
+/* ------------------------------------------------------------------ */
+
+/*
+  Button.astro owns the button in the rest of the site, but its styles are
+  scoped to that component and a React island cannot render an Astro
+  component. These rules restate the same look from the same tokens. If
+  Button.astro's styles are ever promoted into global.css, delete these and
+  use the class instead.
+*/
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.6rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: max(1rem, var(--text-base));
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.action:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.actionPrimary {
+  background: var(--color-crust);
+  color: var(--color-sesame);
+  border-color: var(--color-crust);
+}
+
+.actionSecondary {
+  background: var(--color-paper);
+  color: var(--color-crust);
+  border-color: var(--color-line-strong);
+}
+
+.actionQuiet {
+  background: transparent;
+  color: var(--color-stitch);
+  border-color: transparent;
+  padding-inline: 0.4rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.actionLarge {
+  min-height: 52px;
+  padding: 0.8rem 1.6rem;
+  font-size: var(--text-lg);
+  width: 100%;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem; /* comfortably over the 8px minimum, wrapped or not */
+  margin-top: 1rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Messages                                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+  A message block. The left rule carries the meaning in colour, the heading
+  carries it in words, and neither is load bearing on its own.
+*/
+.message {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--color-line);
+  border-left: 3px solid var(--color-crust-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  margin-block: 0.75rem;
+}
+
+.messageGood {
+  border-left-color: var(--color-good);
+}
+
+.messageWarn {
+  border-left-color: var(--color-warn);
+}
+
+.messageBad {
+  border-left-color: var(--color-bad);
+}
+
+.messageTitle {
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.messageBody {
+  margin: 0;
+  color: var(--color-crust-soft);
+}
+
+.messageBody + .messageBody {
+  margin-top: 0.5rem;
+}
+
+/* The quiet line under a control that reports what just happened. */
+.status {
+  display: block;
+  min-height: 1.5em; /* reserve the line so nothing jumps when it fills */
+  margin-top: 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--color-crust-soft);
+}
+
+.statusGood {
+  color: var(--color-good);
+  font-weight: 600;
+}
+
+.statusBad {
+  color: var(--color-bad);
+  font-weight: 600;
+}
+
+.errorText {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--color-bad);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ */
+/* Waiting                                                             */
+/* ------------------------------------------------------------------ */
+
+/*
+  A loading state that shows what is coming rather than a spinner over a
+  blank. The rows are the shape of the rows that will replace them, and the
+  heading above them says what is being fetched and why.
+*/
+.skeletonRow {
+  height: 44px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--color-paper),
+    var(--color-sesame-deep),
+    var(--color-paper)
+  );
+  background-size: 300% 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeletonRow {
+    animation: islandPulse 1.8s var(--ease-in-out) infinite;
+  }
+}
+
+@keyframes islandPulse {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.busy {
+  color: var(--color-crust-soft);
+  font-size: var(--text-sm);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cart lines                                                          */
+/* ------------------------------------------------------------------ */
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.line {
+  display: grid;
+  /* Photo, description, then the money and the stepper. One column when the
+     row cannot hold them side by side. */
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.9rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.lineMedia {
+  grid-row: span 2;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  background: var(--color-sesame-deep);
+}
+
+.lineName {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.lineVariant {
+  color: var(--color-crust-soft);
+  font-size: var(--text-sm);
+  margin: 0.1rem 0 0;
+}
+
+.lineFoot {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.lineTotal {
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.lineGone {
+  color: var(--color-bad);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ */
+/* Totals                                                              */
+/* ------------------------------------------------------------------ */
+
+.totals {
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.totalRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+}
+
+.totalRowGrand {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  border-top: 1px solid var(--color-line);
+  margin-top: 0.35rem;
+  padding-top: 0.7rem;
+}
+
+.totalLabel {
+  color: var(--color-crust-soft);
+}
+
+.totalRowGrand .totalLabel {
+  color: var(--color-crust);
+}
+
+/* ------------------------------------------------------------------ */
+/* The checkout gate                                                   */
+/* ------------------------------------------------------------------ */
+
+.checklist {
+  list-style: none;
+  margin: 0.75rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.checkItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: var(--color-crust-soft);
+}
+
+/*
+  The marker is a word for a screen reader and a mark for everyone else, so
+  the list never depends on the glyph alone.
+*/
+.checkMark {
+  flex: none;
+  width: 1.25rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-warn);
+}
+
+.checkItemDone .checkMark {
+  color: var(--color-good);
+}
+
+.checkItemDone {
+  color: var(--color-crust);
+}
+
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  margin-top: 1rem;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.consentInvalid {
+  border-color: var(--color-bad);
+  border-width: 2px;
+}
+
+.consentBox {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0.1rem 0 0;
+  accent-color: var(--color-crust);
+}
+
+.consentText {
+  min-width: 0;
+}
+
+.summary {
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+
+.summaryLabel {
+  color: var(--color-crust-soft);
+  min-width: 7rem;
+}
+
+.summaryValue {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ref {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+
+/* ------------------------------------------------------------------ */
+/* The closed state                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+  Not an error. The store has no registration number yet, and that is a
+  normal stage of opening a bakery, so it reads as an announcement rather
+  than as something broken.
+*/
+.closed {
+  padding: 1.1rem 1.2rem;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-top: 3px solid var(--color-eggwash);
+  border-radius: var(--radius-md);
+  box-shadow: var(--lift-1);
+}
+
+.closedTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  margin: 0 0 0.4rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* The sticky order bar, when a page asks for one                      */
+/* ------------------------------------------------------------------ */
+
+.bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  max-width: none;
+  padding: 0.75rem 1rem;
+  /* The home indicator on a notched phone sits over anything pinned to the
+     bottom edge. viewport-fit=cover is already set in Base.astro, which is
+     what makes this resolve to a real number. */
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  background: var(--color-sesame);
+  border-top: 1px solid var(--color-line);
+  box-shadow: var(--lift-3);
+}
+
+.barRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.barRow .actionLarge {
+  width: auto;
+  flex: 1 1 12rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* The honeypot                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+  Off screen rather than display:none, because some robots skip a field that
+  is not rendered. Hidden from assistive technology as well, so nobody is
+  ever asked to fill in a trap.
+*/
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
