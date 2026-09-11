@@ -1,0 +1,94 @@
+{
+  "sku": "HB-GATA-01",
+  "slug": "gata",
+  "name": "Armenian Gata",
+  "nameHy": "Գաթա",
+  "description": "Rolled dough with a sweet nut filling, sliced into pieces, egg washed gold, and scattered by hand with sesame seeds. Some households call it nazook, or kata. Baked in small batches in Cypress and sold by the tray.",
+  "descriptionHy": null,
+
+  "ingredients": [
+    "all purpose flour",
+    "sour cream",
+    "unsalted butter",
+    "baking powder",
+    "almond flour",
+    "walnuts",
+    "sugar",
+    "cinnamon",
+    "clove",
+    "nutmeg",
+    "egg",
+    "sesame seeds"
+  ],
+
+  "allergens": ["Wheat", "Milk", "Egg", "Almonds", "Walnuts", "Sesame"],
+
+  "nutrition": null,
+
+  "variants": [
+    {
+      "id": "half-tray",
+      "label": "Half tray",
+      "priceCents": 2800,
+      "pricingStatus": "placeholder",
+      "piecesPerUnit": null,
+      "netWeightGrams": null,
+      "stripePriceId": null
+    },
+    {
+      "id": "full-tray",
+      "label": "Full tray",
+      "priceCents": 5200,
+      "pricingStatus": "placeholder",
+      "piecesPerUnit": null,
+      "netWeightGrams": null,
+      "stripePriceId": null
+    }
+  ],
+
+  "images": [
+    {
+      "src": "src/assets/photos/gata-rows-wide.jpg",
+      "alt": "Close up of gata on the tray, the cut faces showing nut filling turned inside the dough, sesame seeds caught in the gold egg wash.",
+      "width": 860,
+      "height": 600,
+      "role": "hero"
+    },
+    {
+      "src": "src/assets/photos/gata-tray-full.jpg",
+      "alt": "A whole sheet pan of gata, every piece egg washed to a deep gold and scattered with sesame seeds.",
+      "width": 1060,
+      "height": 1180,
+      "role": "gallery"
+    },
+    {
+      "src": "src/assets/photos/gata-rows-tall.jpg",
+      "alt": "The same tray upright, rows of gata leaning against each other in a shallow line, tops gold and speckled with sesame.",
+      "width": 700,
+      "height": 950,
+      "role": "gallery"
+    },
+    {
+      "src": "src/assets/photos/gata-box-square.jpg",
+      "alt": "A packed tray of gata seen from straight above, pieces set side by side, sesame scattered across every gold top.",
+      "width": 900,
+      "height": 900,
+      "role": "package"
+    }
+  ],
+
+  "leadTimeDays": 2,
+  "availableOn": [0, 1, 3, 4, 5, 6],
+  "active": true,
+  "sortOrder": 1,
+
+  "storage": "Keep the tray sealed at room temperature and out of direct sun.",
+  "bestByDays": null,
+  "servingSuggestion": "Serve at room temperature, with coffee or tea.",
+
+  "internalTodo": [
+    "PLACEHOLDER PRICING. Both tray prices are stand ins so the page can be built. Hakop confirms the real figures before the store opens. Brief open decision 5.",
+    "Bake days are set to every day except Tuesday, which is the one fixed fact. Hakop picks the real schedule.",
+    "The Armenian description is blank on purpose. The family writes it in their own words."
+  ]
+}

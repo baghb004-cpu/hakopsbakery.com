@@ -1,0 +1,134 @@
+# Netlify configuration for hakopsbakery.com
+#
+# The public site is static. Four functions handle the things that genuinely
+# need a server. See docs/ARCHITECTURE.md.
+#
+# `npm run build` runs scripts/preflight.mjs before astro build, so a deploy
+# that would put the site out of compliance fails here rather than going live.
+
+[build]
+  command   = "npm run build"
+  publish   = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  # package.json sets the floor at 20.11.0. Current LTS is used in CI.
+  NODE_VERSION = "22"
+  # Keep the build output honest about what it is doing.
+  NPM_FLAGS = "--no-audit --no-fund"
+
+[functions]
+  node_bundler = "esbuild"
+  # Bundle only what a function actually imports.
+  included_files = ["src/content/**"]
+
+# Previews and branch deploys never open the store and never touch live Stripe.
+# A value set here wins over the dashboard for that context, which is the point.
+[context.deploy-preview.environment]
+  PUBLIC_STORE_OPEN = "false"
+
+[context.branch-deploy.environment]
+  PUBLIC_STORE_OPEN = "false"
+
+# `netlify dev` runs the Astro dev server and the functions together, which is
+# the only way to exercise checkout locally.
+[dev]
+  command    = "npm run dev"
+  framework  = "#custom"
+  targetPort = 4321
+  port       = 8888
+
+
+# ---------------------------------------------------------------------------
+# Redirects
+#
+# Order matters. Netlify takes the first match, and a rule with force = false
+# never beats a file that actually exists.
+# ---------------------------------------------------------------------------
+
+# The label QR landing page. Printed on every tray and scanned by somebody
+# standing in a kitchen worried about an allergy, so it has to resolve whether
+# or not the scanner adds a trailing slash.
+[[redirects]]
+  from   = "/p/:sku"
+  to     = "/p/:sku/index.html"
+  status = 200
+
+# An unknown SKU gets a real 404 rather than a blank page. Static 404 handling
+# for the rest of the site is Netlify's default use of dist/404.html.
+[[redirects]]
+  from   = "/p/*"
+  to     = "/404.html"
+  status = 404
+
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options        = "DENY"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(self \"https://js.stripe.com\" \"https://checkout.stripe.com\"), usb=(), xr-spatial-tracking=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Cross-Origin-Opener-Policy = "same-origin"
+    X-Robots-Tag = "index, follow"
+
+    # Content Security Policy.
+    #
+    # self, plus Stripe's script and checkout domains, plus Cloudflare Insights.
+    # Nothing else is loaded by this site: the fonts are self hosted and the
+    # photography is built into the deploy.
+    #
+    # 'unsafe-inline' is present in script-src for one reason: the header cart
+    # badge is about four hundred bytes of inline script rather than a React
+    # island that would put 215 KB on every page (docs/DECISIONS.md D-006).
+    # A static host cannot issue a per request nonce, so the way to remove this
+    # is to hash the inline scripts at build time and list the hashes here.
+    # Worth doing. Until then, note that the site renders no user supplied HTML,
+    # which is what makes the risk small rather than theoretical.
+    #
+    # style-src keeps 'unsafe-inline' because Astro inlines critical CSS.
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com; script-src 'self' 'unsafe-inline' https://js.stripe.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.stripe.com; font-src 'self'; connect-src 'self' https://api.stripe.com https://cloudflareinsights.com https://static.cloudflareinsights.com; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests"
+
+# The admin is never indexed and is not cached anywhere.
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    X-Robots-Tag  = "noindex, nofollow"
+    Cache-Control = "private, no-store"
+
+# Per customer, signed, and not for search engines.
+[[headers]]
+  for = "/order/*"
+  [headers.values]
+    X-Robots-Tag  = "noindex, nofollow"
+    Cache-Control = "private, no-store"
+
+
+# ---------------------------------------------------------------------------
+# Caching
+#
+# Fingerprinted assets are immutable and can be cached for a year. HTML is
+# deliberately left alone so a rebuild is visible immediately, which matters
+# because publishing a product from the admin triggers a rebuild.
+# ---------------------------------------------------------------------------
+
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
