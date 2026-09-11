@@ -21,7 +21,8 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "lint:contrast": "node scripts/check-contrast.mjs",
     "lint:html": "node scripts/check-html.mjs",
-    "fonts:subset": "node scripts/subset-fonts.mjs"
+    "fonts:subset": "node scripts/subset-fonts.mjs",
+    "status": "node scripts/status.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.5",

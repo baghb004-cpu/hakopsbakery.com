@@ -18,6 +18,27 @@ without a registration number.
 
 ---
 
+## Start here
+
+If you are picking this up, whether you are Hakop, Lusik, or a Claude session
+opening the repository cold, read **[docs/HANDOVER.md](docs/HANDOVER.md)** first.
+It says what is done, what is deliberately blank, what you do not need, and the
+path from here to a first order.
+
+Then run:
+
+```
+npm install
+npm run status      # what is set, what is missing, and what each missing value unlocks
+npm run dev         # the site, at http://localhost:4321
+npm run verify      # the contract: copy, contrast, types, tests, build, HTML audit
+```
+
+`npm run status` is the fastest way to see how far the site is from taking a
+real order. It reads only and changes nothing.
+
+---
+
 ## The one rule that is not negotiable
 
 **The recipe must never enter this repository.**
