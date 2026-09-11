@@ -19,8 +19,14 @@
   --color-stitch: #1b4b5a; /* links and focus rings */
   --color-stitch-bright: #2b6f84; /* hover, and links on dark grounds */
   --color-paper: #fbf8f1; /* raised surface */
-  --color-line: #d6c7a8; /* hairlines and rules */
-  --color-line-strong: #b9a37c; /* input borders, 3:1 against paper */
+  /* Two weights of line, and the difference is a WCAG one rather than a
+     stylistic one. A decorative rule separating two blocks carries no
+     contrast requirement because losing it costs a reader nothing. The border
+     of a form field is a user interface component and must clear 3 to 1, or
+     someone cannot tell where the field is. Verified by
+     scripts/check-contrast.mjs, which is why this comment can be trusted. */
+  --color-line: #d6c7a8; /* decorative hairlines and rules, no text */
+  --color-line-strong: #8f7a4f; /* input borders. 3.34:1 on the page ground */
 
   /* Status. Derived from the palette rather than bolted on from a UI kit. */
   --color-good: #2f5d3a;
