@@ -1,0 +1,86 @@
+---
+/**
+ * The kind of gata Hakop makes.
+ *
+ * This page exists because "gata" names more than one pastry, and somebody
+ * who grew up with the flat stamped round will order the wrong thing if the
+ * difference is buried three headings down a long explainer. It is its own
+ * URL so it can be sent to one person as one link. See docs/DECISIONS.md
+ * D-008.
+ *
+ * The rules that hold on every page about the food hold here. Ingredient
+ * names are public and legally required. Amounts, ratios, timings and method
+ * are the recipe, and they never enter this repository.
+ */
+import { Image } from "astro:assets";
+
+import Explainer from "./_Explainer.astro";
+import pan from "@/assets/photos/gata-tray-full.jpg";
+---
+
+<Explainer
+  slug="rolled-and-sliced"
+  seoTitle="The rolled and sliced kind of gata"
+  description="There is more than one kind of gata. Hakop's is the rolled and sliced kind: nut filling turned inside the dough, cut across into pieces and scattered with sesame."
+>
+  <div class="prose-col rolled__body">
+    <p>
+      The filling is turned inside the dough rather than layered on top of it:
+      the dough goes around a sweet nut filling as a long log, and the log is
+      cut across into pieces. The tops are washed with egg and scattered with
+      sesame, and that egg wash is what makes them gold.
+    </p>
+    <p>
+      There is more than one kind of gata. Hakop's is this one, the rolled and
+      sliced kind. It is not the flat stamped round that some families make,
+      and the two are different enough that it is worth saying so before
+      anybody is disappointed.
+    </p>
+    <p>
+      The sesame goes on by hand, thrown rather than pressed into a pattern,
+      which is why no two pieces are marked the same way. It is sold by the
+      tray rather than by the piece.
+    </p>
+  </div>
+
+  <figure class="rolled__figure">
+    <Image
+      src={pan}
+      alt="A whole sheet pan of gata, every piece egg washed to a deep gold and scattered with sesame seeds."
+      width={1060}
+      height={1180}
+      widths={[400, 640, 1060]}
+      sizes="(min-width: 56rem) 26rem, 88vw"
+      loading="eager"
+      decoding="async"
+    />
+    <figcaption>Every piece on the pan is a slice off the same log.</figcaption>
+  </figure>
+</Explainer>
+
+<style>
+  .rolled__body {
+    margin-top: 1.1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-body);
+  }
+
+  .rolled__figure {
+    margin: 1.75rem 0 0;
+    max-width: 26rem;
+  }
+
+  .rolled__figure :global(img) {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+  }
+
+  .rolled__figure figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    max-width: 40ch;
+  }
+</style>

@@ -36,6 +36,10 @@ const isArmenian = (cp) =>
 
 const DIST = join(process.cwd(), "dist");
 
+/* The same value astro.config.mjs builds with, so a canonical is checked
+   against the origin the build actually used rather than a guess. */
+const SITE = (process.env.PUBLIC_SITE_URL || "https://hakopsbakery.com").replace(/\/+$/, "");
+
 const RED = "\x1b[31m", YEL = "\x1b[33m", GRN = "\x1b[32m";
 const DIM = "\x1b[2m", RST = "\x1b[0m";
 
@@ -125,8 +129,29 @@ async function* htmlFiles(dir) {
   }
 }
 
+/**
+ * The route a built file answers to. `faq/allergens/index.html` is `/faq/`
+ * plus `allergens/`, and `404.html` is `/404/`, which is what its canonical
+ * says and what Netlify serves it as.
+ */
+const routeOf = (rel) => {
+  const path = "/" + rel.split(/[\\/]/).join("/");
+  if (path.endsWith("/index.html")) return path.slice(0, -"index.html".length);
+  return path.replace(/\.html$/, "/");
+};
+
+/** A root relative href as a route: no query, no fragment, one trailing slash. */
+const routeOfHref = (href) => {
+  const path = href.split("#")[0].split("?")[0];
+  if (path === "") return null;
+  if (path.endsWith(".html")) return path.replace(/\.html$/, "/");
+  return path.endsWith("/") ? path : `${path}/`;
+};
+
 const problems = [];
 const warnings = [];
+/** Everything the cross page pass below needs, one entry per built page. */
+const docs = [];
 let pages = 0;
 
 for await (const file of htmlFiles(DIST)) {
@@ -151,6 +176,34 @@ for await (const file of htmlFiles(DIST)) {
 
   const desc = root.querySelector('meta[name="description"]')?.getAttribute("content")?.trim() ?? "";
   if (!desc) fail("description", "No meta description.");
+  else if (desc.length > 175) {
+    warn(
+      "description-long",
+      `Meta description is ${desc.length} characters. A search result cuts one off nearer 160, ` +
+        "so everything past that is written for nobody.",
+    );
+  }
+
+  /*
+    Kept for the cross page pass. A title, a description and a trail can only
+    be judged against the rest of the build: on its own, a page cannot tell
+    that a sibling is claiming the same sentence.
+  */
+  docs.push({
+    rel,
+    route: routeOf(rel),
+    title,
+    desc,
+    canonical: root.querySelector('link[rel="canonical"]')?.getAttribute("href")?.trim() ?? "",
+    noindex: /noindex/i.test(
+      root.querySelector('meta[name="robots"]')?.getAttribute("content") ?? "",
+    ),
+    jsonld: root.querySelectorAll('script[type="application/ld+json"]').map((s) => s.rawText),
+    hrefs: root
+      .querySelectorAll("a[href]")
+      .map((a) => a.getAttribute("href"))
+      .filter((href) => href && !/^(https?:|mailto:|tel:|#|\/\/)/.test(href)),
+  });
 
   const viewport = root.querySelector('meta[name="viewport"]')?.getAttribute("content") ?? "";
   if (!viewport.includes("width=device-width")) {
@@ -319,6 +372,304 @@ for await (const file of htmlFiles(DIST)) {
 }
 
 /* ------------------------------------------------------------------ */
+/* The cross page pass                                                 */
+/*                                                                     */
+/* Everything above judges one page on its own. These cannot be: a     */
+/* title is only a duplicate next to another title, a page is only an  */
+/* orphan when nothing else links to it, and a breadcrumb is only      */
+/* correct if the trail above it exists.                               */
+/*                                                                     */
+/* This exists because of docs/DECISIONS.md D-008, which split the     */
+/* questions page and the gata explainer into a page per answer. That  */
+/* is worth doing only if each new page carries a title, a description */
+/* and a position of its own. Two split pages sharing a description is */
+/* worse than the one page they came from, and it is invisible from    */
+/* inside either file.                                                 */
+/* ------------------------------------------------------------------ */
+
+const crossFail = (id, rel, msg) => problems.push({ rel, id, msg });
+const crossWarn = (id, rel, msg) => warnings.push({ rel, id, msg });
+
+const routes = new Set(docs.map((d) => d.route));
+const byRoute = new Map(docs.map((d) => [d.route, d]));
+
+/* Only pages a search engine is allowed to keep. A noindex page cannot
+   compete with anything, so it is exempt from the duplication rules. */
+const indexable = docs.filter((d) => !d.noindex);
+
+/* ---- Canonical ---- */
+
+for (const d of docs) {
+  const want = `${SITE}${d.route}`;
+  if (d.canonical === "") {
+    crossFail("canonical", d.rel, "No canonical link. Every page has to name itself.");
+  } else if (d.canonical !== want) {
+    crossFail(
+      "canonical",
+      d.rel,
+      `Canonical is ${d.canonical}, and this page is served at ${want}.\n` +
+        "        A canonical pointing anywhere but at the page carrying it hands its\n" +
+        "        ranking to whatever it names.",
+    );
+  }
+}
+
+/* ---- One title and one description per page ---- */
+
+const groupBy = (list, key) => {
+  const m = new Map();
+  for (const item of list) {
+    const k = key(item);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(item);
+  }
+  return m;
+};
+
+for (const [value, sharing] of groupBy(indexable, (d) => d.title.toLowerCase())) {
+  if (value !== "" && sharing.length > 1) {
+    crossFail(
+      "duplicate-title",
+      sharing[0].rel,
+      `${sharing.length} pages share the title "${sharing[0].title}":\n` +
+        `        ${sharing.map((d) => d.route).join(", ")}\n` +
+        "        A search engine picks one of them and drops the rest.",
+    );
+  }
+}
+
+for (const [value, sharing] of groupBy(indexable, (d) => d.desc.toLowerCase())) {
+  if (value !== "" && sharing.length > 1) {
+    crossFail(
+      "duplicate-description",
+      sharing[0].rel,
+      `${sharing.length} pages share a meta description:\n` +
+        `        ${sharing.map((d) => d.route).join(", ")}\n` +
+        `        "${sharing[0].desc}"`,
+    );
+  }
+}
+
+/*
+  Near duplicates, which is the failure that actually happens. Nobody pastes
+  a description twice. What happens is that a page is split and the halves
+  keep the same opening sentence, so both results read identically down to
+  where the snippet is cut off.
+*/
+const SHARED_OPENING = 60;
+
+const sharedPrefix = (a, b) => {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
+  return i;
+};
+
+/** Word trigrams, for the pairs that differ at the start and nowhere else. */
+const trigrams = (value) => {
+  const words = value
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  const out = new Set();
+  for (let i = 0; i + 2 < words.length; i += 1) out.add(words.slice(i, i + 3).join(" "));
+  return out;
+};
+
+const overlap = (a, b) => {
+  const left = trigrams(a);
+  const right = trigrams(b);
+  if (left.size === 0 || right.size === 0) return 0;
+  let shared = 0;
+  for (const gram of left) if (right.has(gram)) shared += 1;
+  return shared / (left.size + right.size - shared);
+};
+
+for (let i = 0; i < indexable.length; i += 1) {
+  for (let j = i + 1; j < indexable.length; j += 1) {
+    const a = indexable[i];
+    const b = indexable[j];
+    if (a.desc === "" || b.desc === "" || a.desc === b.desc) continue;
+
+    const opening = sharedPrefix(a.desc, b.desc);
+    if (opening >= SHARED_OPENING) {
+      crossFail(
+        "near-duplicate-description",
+        a.rel,
+        `${a.route} and ${b.route} open their descriptions with the same ${opening} characters.\n` +
+          "        A snippet is cut off around 160, so both results read as the same page.\n" +
+          `        "${a.desc.slice(0, opening)}"`,
+      );
+      continue;
+    }
+
+    const score = overlap(a.desc, b.desc);
+    if (score >= 0.5) {
+      crossWarn(
+        "similar-description",
+        a.rel,
+        `${a.route} and ${b.route} have descriptions that are ${Math.round(score * 100)} percent the same phrasing.\n` +
+          "        Worth a look: two pages competing for one query win it less often than one would.",
+      );
+    }
+  }
+}
+
+/* ---- BreadcrumbList ---- */
+
+for (const d of docs) {
+  for (const raw of d.jsonld) {
+    let data;
+    try {
+      /* Base.astro and Breadcrumbs.astro both escape "<" on the way in, so
+         it has to come back out before this parses. */
+      data = JSON.parse(raw.replace(/\\u003c/g, "<"));
+    } catch (error) {
+      crossFail("json-ld-invalid", d.rel, `A JSON-LD block does not parse: ${error.message}`);
+      continue;
+    }
+
+    for (const node of Array.isArray(data) ? data : [data]) {
+      if (node?.["@type"] !== "BreadcrumbList") continue;
+
+      const errs = [];
+      if (node["@context"] !== "https://schema.org") {
+        errs.push(`@context is ${JSON.stringify(node["@context"])}, not "https://schema.org"`);
+      }
+
+      const items = node.itemListElement;
+      if (!Array.isArray(items) || items.length === 0) {
+        errs.push("itemListElement is not a non empty array");
+      } else {
+        items.forEach((item, index) => {
+          if (item?.["@type"] !== "ListItem") errs.push(`item ${index} is not a ListItem`);
+          if (item?.position !== index + 1) {
+            errs.push(
+              `item ${index} has position ${item?.position}, and positions run from 1 without a gap`,
+            );
+          }
+          if (!item?.name) errs.push(`item ${index} has no name`);
+
+          const url = typeof item?.item === "string" ? item.item : item?.item?.["@id"];
+          if (!url) {
+            errs.push(`item ${index} has no item URL`);
+          } else if (!url.startsWith(`${SITE}/`) && url !== SITE) {
+            errs.push(`item ${index} points at ${url}, which is not an absolute URL on this site`);
+          } else if (!routes.has(url.slice(SITE.length))) {
+            errs.push(`item ${index} points at ${url}, and no page was built there`);
+          }
+        });
+
+        const last = items[items.length - 1];
+        const lastUrl = typeof last?.item === "string" ? last.item : last?.item?.["@id"];
+        if (lastUrl !== `${SITE}${d.route}`) {
+          errs.push(`the trail ends at ${lastUrl} rather than at this page, ${SITE}${d.route}`);
+        }
+      }
+
+      if (errs.length > 0) {
+        crossFail(
+          "breadcrumb-list",
+          d.rel,
+          `BreadcrumbList is malformed, so a result shows a bare URL instead of a trail:\n` +
+            errs.map((e) => `        ${e}`).join("\n"),
+        );
+      }
+    }
+  }
+}
+
+/* ---- The sitemap ---- */
+
+const sitemapFiles = (await readdir(DIST)).filter((name) => /^sitemap-\d+\.xml$/.test(name));
+if (sitemapFiles.length === 0) {
+  problems.push({
+    rel: "sitemap-0.xml",
+    id: "sitemap-missing",
+    msg: "No sitemap was generated, so nothing tells a crawler these pages exist.",
+  });
+} else {
+  const listed = new Set();
+  for (const name of sitemapFiles) {
+    const xml = await readFile(join(DIST, name), "utf8");
+    for (const match of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) listed.add(match[1]);
+  }
+
+  for (const d of indexable) {
+    if (!listed.has(`${SITE}${d.route}`)) {
+      crossFail(
+        "sitemap",
+        d.rel,
+        `${d.route} is indexable and is not in the sitemap. Add it, or mark the page noindex.`,
+      );
+    }
+  }
+
+  for (const loc of listed) {
+    if (!loc.startsWith(SITE) || !routes.has(loc.slice(SITE.length))) {
+      problems.push({
+        rel: "sitemap-0.xml",
+        id: "sitemap",
+        msg: `The sitemap lists ${loc}, and no page was built there.`,
+      });
+    }
+  }
+}
+
+/* ---- Orphans ---- */
+
+/*
+  A page nothing links to is reachable only by typing the URL. These four are
+  the exceptions, and each is reached some other way rather than by a link,
+  so listing them here is the honest answer and not a way of silencing the
+  check. Anything else with no inbound link is a mistake.
+*/
+const REACHED_WITHOUT_A_LINK = new Map([
+  ["/404/", "Netlify serves it for an unknown path. Nothing should link to it."],
+  [
+    "/cart/",
+    "The header and the bottom bar link here once the store is open. While it is\n" +
+      "        closed there is no cart to link to.",
+  ],
+  [
+    "/checkout/",
+    "Reached from the cart by script, after the delivery zone check passes.",
+  ],
+  ["/order/confirmed/", "Reached from Stripe after payment, and it is noindex."],
+]);
+
+const inbound = new Map(docs.map((d) => [d.route, new Set()]));
+for (const d of docs) {
+  for (const href of d.hrefs) {
+    const target = routeOfHref(href);
+    if (target === null) continue;
+    if (!routes.has(target)) {
+      crossFail(
+        "dead-link",
+        d.rel,
+        `Links to ${href}, and no page was built at ${target}.`,
+      );
+      continue;
+    }
+    if (target !== d.route) inbound.get(target).add(d.route);
+  }
+}
+
+for (const d of indexable) {
+  /* The label lives on a printed tray. A QR code is its inbound link. */
+  if (d.route.startsWith("/p/")) continue;
+  if (REACHED_WITHOUT_A_LINK.has(d.route)) continue;
+  if (inbound.get(d.route).size === 0) {
+    crossFail(
+      "orphan",
+      d.rel,
+      `Nothing on this site links to ${d.route}. A page reachable only from the sitemap\n` +
+        "        is a page no customer will ever find.",
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ */
 
 if (pages === 0) {
   console.error(`${RED}No HTML found in dist/. Run the build first.${RST}`);
@@ -346,11 +697,25 @@ if (problems.length > 0) {
   console.error(`\n${RED}HTML audit failed.${RST} ${problems.length} problem(s) across ${byId(problems).size} check(s):\n`);
   for (const [id, items] of byId(problems)) {
     console.error(`${RED}  ✗${RST}  ${id} ${DIM}(${items.length} occurrence${items.length === 1 ? "" : "s"})${RST}`);
-    console.error(`        ${items[0].msg}`);
+
+    /* The cross page checks each say something different, so printing one and
+       counting the rest would hide most of what is wrong. Distinct messages
+       are printed, up to a point. */
+    const messages = [...new Set(items.map((i) => i.msg))];
+    for (const msg of messages.slice(0, 5)) console.error(`        ${msg}`);
+    if (messages.length > 5) {
+      console.error(`        ${DIM}and ${messages.length - 5} more like it${RST}`);
+    }
+
     const where = [...new Set(items.map((i) => i.rel))].slice(0, 6);
     console.error(`        ${DIM}in: ${where.join(", ")}${items.length > 6 ? " and more" : ""}${RST}\n`);
   }
   process.exit(1);
 }
 
-console.log(`${GRN}  ok${RST}    landmarks, headings, images, forms, copy and the disclosure all pass\n`);
+console.log(`${GRN}  ok${RST}    landmarks, headings, images, forms, copy and the disclosure all pass`);
+console.log(
+  `${GRN}  ok${RST}    ${indexable.length} indexable page(s): a title and a description of its own,\n` +
+    "        a self referencing canonical, a valid trail, a place in the sitemap\n" +
+    "        and a link in from somewhere\n",
+);

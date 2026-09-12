@@ -156,6 +156,24 @@ const SWITCH = "(min-width: 48rem)";
 <style>
   .hero__inner {
     display: grid;
+    /*
+      minmax(0, 1fr) rather than the implicit auto track, and it is load
+      bearing rather than tidiness.
+
+      An auto track cannot be smaller than the largest min-content in it, so
+      one long word sets a floor the container is not allowed to enforce. At
+      320px with the browser font size turned up to 24px the word "Armenian"
+      in the display face measures 226px, the plate's padding and border add
+      55, and the track went to 280 inside a 272px box. The photograph is
+      pulled full bleed off that track, so it left the screen by 8px and the
+      page scrolled sideways: the fault was 226px of heading, and the thing
+      that showed it was the picture.
+
+      Pinning the track at the container width moves the decision back to
+      where it can be handled. The heading has overflow-wrap: anywhere from
+      global.css and breaks the word rather than the layout.
+    */
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
     padding-block: clamp(0.75rem, 2.5vw, 2rem) 0;
   }
@@ -163,8 +181,9 @@ const SWITCH = "(min-width: 48rem)";
   .hero__media {
     margin: 0;
     /* Full bleed on a phone. The negative inline margin is exactly the
-       container padding, so it reaches the viewport edge and not past it. */
-    margin-inline: calc(-1 * clamp(1rem, 4vw, 2.5rem));
+       container padding, from the same token, so it reaches the viewport
+       edge and not past it. */
+    margin-inline: calc(-1 * var(--gutter));
   }
 
   .hero__frame {
@@ -181,10 +200,18 @@ const SWITCH = "(min-width: 48rem)";
     */
     width: 100%;
     aspect-ratio: 700 / 950;
-    /* Tall enough to be the subject, short enough that the order action is
-       still on screen on a small phone. Never vh: it breaks under the
-       browser chrome on iOS at exactly the wrong moment. */
-    max-height: 56svh;
+    /*
+      Tall enough to be the subject, short enough that the order action is
+      still on screen on a small phone. The token is 56svh, and the shape
+      rule at the foot of breakpoints.css pulls it to 44svh on a viewport
+      that is wide for its height: the iPhone Duo folded at 466 by 678, and
+      every phone in landscape. Reading the token rather than repeating the
+      number is what gets the hero that rule. On the Duo folded it is the
+      difference between the heading being under the bottom bar on arrival
+      and being above it. Never vh: it breaks under the browser chrome on
+      iOS at exactly the wrong moment.
+    */
+    max-height: var(--hero-block-max);
     overflow: hidden;
     background-color: var(--color-sesame-deep);
   }
@@ -262,10 +289,30 @@ const SWITCH = "(min-width: 48rem)";
 
     .hero__media {
       margin-inline: 0;
+      /*
+        The photograph fills its column rather than floating in the middle
+        of it.
+
+        Between 768 and about 1000 the plate is the taller of the two: the
+        column it gets is around 310px, so the heading takes four lines and
+        the lede six. The photograph in the other column is sized by its
+        aspect ratio alone, which at 768 made it 396 by 276 inside a 600px
+        row, and the component whose whole argument is that the photograph
+        leads was the smallest thing on the screen with 160px of empty
+        ground above and below it. Stretching costs a tighter crop of a
+        tray that is the same rows all the way across, and it only ever
+        applies where the plate is taller: from about 1024 up the
+        photograph is the taller one and keeps its own ratio untouched.
+      */
+      align-self: stretch;
     }
 
     .hero__frame {
       aspect-ratio: 860 / 600;
+      /* Fills the row when the row is taller than the ratio asks for. The
+         ratio still sets the height everywhere else, because it only
+         applies while the height is auto. */
+      height: 100%;
       max-height: none;
       border-radius: var(--radius-md);
     }

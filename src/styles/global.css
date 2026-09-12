@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "./tokens.css";
+/* The six bands, the shape rule and the fold. Reads tokens.css, moves the
+   handful of tokens the primitives below are built on. */
+@import "./breakpoints.css";
 @import "./fonts.css";
 
 /* ----------------------------------------------------------------------
@@ -65,11 +68,23 @@
     letter-spacing: -0.014em;
     text-wrap: balance;
     margin: 0;
-    /* A heading is a couple of long words in a large display face, so at 200
-       percent text on a 320px screen one word can be wider than the column.
-       Breaking a word looks poor; losing the end of it behind a clipped edge
-       is worse. `break-word` only breaks when there is no other way to fit. */
-    overflow-wrap: break-word;
+    /*
+      A heading is a couple of long words in a large display face, so at 200
+      percent text on a 320px screen one word can be wider than the column.
+      Breaking a word looks poor; losing the end of it behind a clipped edge
+      is worse. Both values here break only when there is no other way to
+      fit, so on every screen where the heading does fit they are identical.
+
+      `anywhere` rather than `break-word`, for the reason spelled out at the
+      mailto rule below: only `anywhere` lowers the MIN-CONTENT size, and
+      min-content is what a grid track or a flex item is measured by. With
+      `break-word` the product title, which is a wrapping flex row, still
+      reported "Armenian" at its full 264px as the least it could be, so the
+      flex item refused to go under that and the page ran 13px off the right
+      hand edge with the word itself never breaking. The heading was willing
+      to break and nothing ever asked it to.
+    */
+    overflow-wrap: anywhere;
   }
 
   h1 { font-size: var(--text-4xl); }
@@ -165,6 +180,29 @@
     color: inherit;
   }
 
+  /*
+    A link inside a nav is a control, not a sentence.
+
+    WCAG 2.2 exempts a link set in running text from the target size rule,
+    because a phrase in a paragraph is sized by the type and growing it would
+    push the sentence apart. A navigation link has no such excuse, and the
+    brief asks for 44 by 44 with 8px between. The header and the footer both
+    set a 44px minimum HEIGHT and neither sets a width, so the short labels
+    came out under it: Story measured 41 wide, Terms 43. Three pixels is
+    three pixels, and it is the shortest words that get mis-tapped.
+
+    Stated here rather than in the two components because it is one rule
+    about what a tap target is, and it should not have to be remembered
+    twice. Neither component declares either property, so nothing is being
+    overridden. scripts/check-viewports.mjs measures every one of them at
+    every width in docs/DEVICES.md.
+  */
+  nav a[href] {
+    min-inline-size: 44px;
+    min-block-size: 44px;
+    justify-content: center;
+  }
+
   /* A focus ring that is genuinely visible on every ground we use. */
   :focus-visible {
     outline: 3px solid var(--color-link);
@@ -192,7 +230,10 @@
     width: 100%;
     max-width: var(--container-page);
     margin-inline: auto;
-    padding-inline: clamp(1rem, 4vw, 2.5rem);
+    /* One gutter, from one token, and now genuinely only here. Hero.astro
+       cancels it with calc(-1 * var(--gutter)) to pull its photograph full
+       bleed, so the two cannot drift apart. */
+    padding-inline: var(--gutter);
   }
 
   .page--wide { max-width: var(--container-wide); }
@@ -201,14 +242,53 @@
     max-width: var(--container-prose);
   }
 
-  .prose-col p + p { margin-top: 1.15em; }
+  .prose-col p + p { margin-top: var(--flow-space); }
 
-  /* Vertical rhythm between major page sections. Set once, used everywhere. */
+  /*
+    Vertical rhythm between major page sections. Set once, used everywhere,
+    and moved by the band and the shape of the screen rather than by the
+    width alone: on the iPhone Duo folded, and on any phone in landscape,
+    height is the scarce dimension and this is where it is saved.
+  */
   .band {
-    padding-block: clamp(3rem, 7vw, 6rem);
+    padding-block: var(--band-space);
   }
 
-  .band--tight { padding-block: clamp(2rem, 4vw, 3.25rem); }
+  .band--tight { padding-block: var(--band-space-tight); }
+
+  /*
+    Two columns, from the tweener up.
+
+    This is the primitive the tweener band exists for. A 626px screen is a
+    7.6 inch display, and giving it the single column drawn for a 360px
+    phone wastes it. Anything that reads as a pair (a block of copy beside
+    its facts, a photograph beside its caption) can take .split and open at
+    520px instead of waiting for 768.
+
+    Nothing in src/components or src/pages uses it yet. The components that
+    should are listed in docs/QA-CHECKLIST.md section 1, each of which is a
+    one line change from its own min-width rule to this class.
+  */
+  .split {
+    display: grid;
+    /* The fold, where a browser will admit to one: the gutter grows to at
+       least the width of the hinge, so a line never lands in the crease.
+       --fold-gap is 0px everywhere else, including Safari, so this is the
+       plain gap on every screen that has no hinge or will not say. */
+    gap: var(--split-gap);
+    column-gap: max(var(--split-gap), var(--fold-gap));
+    align-items: start;
+  }
+
+  /* 32.5rem is 520px, the tweener floor in breakpoints.css. */
+  @media (min-width: 32.5rem) {
+    .split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    /* The asymmetric case: a main column and something narrower beside it. */
+    .split--aside {
+      grid-template-columns: minmax(0, 1fr) minmax(min(100%, var(--split-aside)), 0.8fr);
+    }
+  }
 
   .surface {
     background-color: var(--color-paper);
@@ -304,7 +384,11 @@
     transform: rotate(calc(var(--row-lean) * -1));
   }
 
-  @media (max-width: 30rem) {
+  /* Below the tweener the lean costs more than it gives: on a single column
+     it eats the gutter it needs to lean into. 32.5rem is the tweener floor
+     from breakpoints.css, so the lean now arrives with the two column
+     layouts rather than at a width of its own. */
+  @media (max-width: 32.4375rem) {
     .lean,
     .lean > * { transform: none; }
   }

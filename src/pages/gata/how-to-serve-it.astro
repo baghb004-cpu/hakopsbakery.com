@@ -1,0 +1,104 @@
+---
+/**
+ * How to serve it.
+ *
+ * A separate search by a separate person: somebody who already has a tray, or
+ * is about to be handed one, and wants to know what to do with it. It gets
+ * its own URL for the same reason every other answer on this site does.
+ * See docs/DECISIONS.md D-008.
+ *
+ * Nothing here is invented. Where Hakop has not said which way is right, this
+ * page says that rather than picking one.
+ */
+import { Image } from "astro:assets";
+
+import Explainer from "./_Explainer.astro";
+import square from "@/assets/photos/gata-box-square.jpg";
+import { getProduct, listPublishedProducts } from "@lib/catalog-source";
+
+const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0] ?? null;
+
+const serving = product?.servingSuggestion ?? "Serve at room temperature, with coffee or tea.";
+
+/*
+  640 is in this ladder to close a gap. With only 320, 450 and 900 the step
+  from 450 to 900 is a doubling, and a 2x phone asking for roughly 500 px has
+  nothing in between, so it takes the 900 and pulls 160 KB into a 288 px box.
+  640 is the rung that request lands on instead, and it costs 94 KB.
+*/
+const SQUARE_WIDTHS = [320, 450, 640, 900];
+---
+
+<Explainer
+  slug="how-to-serve-it"
+  seoTitle="How to serve gata"
+  description={`${serving} It is cut and eaten by hand, and a tray put out whole, in the middle of the table, is the point of buying a tray.`}
+>
+  <div class="serve__split">
+    <div class="prose-col serve__body">
+      <p>{serving} That is the ordinary way, and it is the way most people eat it.</p>
+      <p>
+        Some people warm a piece first and some do not. Both are ordinary and
+        neither is wrong. Hakop has not said one way is correct, so this page
+        will not either.
+      </p>
+      <p>
+        It is cut and eaten by hand. A tray put out whole, in the middle of the
+        table, is the point of buying a tray.
+      </p>
+    </div>
+
+    <figure class="serve__figure">
+      <Image
+        src={square}
+        alt="A packed tray of gata seen from straight above, pieces set side by side, sesame scattered across every gold top."
+        width={450}
+        height={450}
+        widths={SQUARE_WIDTHS}
+        sizes="(min-width: 56rem) 20rem, 78vw"
+        loading="eager"
+        decoding="async"
+      />
+      <figcaption>A tray packed the way it travels.</figcaption>
+    </figure>
+  </div>
+</Explainer>
+
+<style>
+  .serve__split {
+    margin-top: 1.1rem;
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+    align-items: start;
+  }
+
+  @media (min-width: 56rem) {
+    .serve__split {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+    }
+  }
+
+  .serve__body {
+    font-size: var(--text-lg);
+    line-height: var(--leading-body);
+  }
+
+  .serve__figure {
+    margin: 0;
+    max-width: 24rem;
+  }
+
+  .serve__figure :global(img) {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+  }
+
+  .serve__figure figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+    max-width: 40ch;
+  }
+</style>

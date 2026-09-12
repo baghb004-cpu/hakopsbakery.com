@@ -1,0 +1,123 @@
+---
+/**
+ * What is in it.
+ *
+ * The ingredient names, in the order they are printed on the label. This is
+ * the page somebody lands on when they search whether there is a nut in it,
+ * so it is its own URL rather than a heading part way down a longer page.
+ * See docs/DECISIONS.md D-008.
+ *
+ * NAMES ONLY. Ingredient names are public and legally required on the label.
+ * How much of each, in what order, at what heat and for how long is the
+ * recipe, and the recipe never enters this repository.
+ */
+import Explainer from "./_Explainer.astro";
+import { getProduct, listPublishedProducts } from "@lib/catalog-source";
+
+const product = (await getProduct("gata")) ?? (await listPublishedProducts())[0] ?? null;
+
+if (product === null) {
+  throw new Error(
+    "There is no product to read an ingredient list from, so this page would " +
+      "render an empty label. That is worse than a build failure.",
+  );
+}
+
+const allergenLine = product.allergens.join(", ");
+---
+
+<Explainer
+  slug="what-is-in-it"
+  seoTitle="What is in gata"
+  description={`The ingredient names, in the order printed on the label, heaviest first. Contains ${allergenLine}, and there is no allergen free option.`}
+>
+  <div class="prose-col inside__body">
+    <p>
+      These are the ingredient names, in the order they are printed on the
+      label, which the law fixes as heaviest first.
+    </p>
+  </div>
+
+  <ul class="ingredients prose-col">
+    {
+      product.ingredients.map((name) => (
+        <li class="ingredients__item">
+          <span class="ingredients__seed" aria-hidden="true" />
+          {name}
+        </li>
+      ))
+    }
+  </ul>
+
+  <div class="prose-col">
+    <p class="inside__note">
+      Names only. How much of each, in what order, at what heat and for how
+      long is the recipe, and the recipe is not published. That is not
+      coyness: the names are what the law requires and what an allergic
+      customer needs, and the rest is the family's.
+    </p>
+
+    <div class="allergens">
+      <p class="allergens__line">
+        <strong>Contains: {allergenLine}.</strong>
+      </p>
+      <p class="allergens__note">
+        One kitchen, one set of trays. Everything here is handled in a kitchen
+        that also handles all six, so there is no allergen free option and this
+        site will never offer one.{" "}
+        <a href="/legal/allergens">Read the full allergen statement</a>.
+      </p>
+    </div>
+  </div>
+</Explainer>
+
+<style>
+  .inside__body {
+    margin-top: 1.1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-body);
+  }
+
+  .ingredients {
+    list-style: none;
+    margin: 1.1rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+    gap: 0.1rem 1.25rem;
+  }
+
+  .ingredients__item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    padding-block: 0.45rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .ingredients__seed {
+    flex: none;
+    width: 7px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: var(--color-eggwash);
+    transform: rotate(-24deg);
+  }
+
+  .inside__note {
+    margin-top: 1.35rem;
+    color: var(--color-crust-soft);
+  }
+
+  .allergens {
+    margin-top: 1.35rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--color-bad);
+  }
+
+  .allergens__note {
+    margin-top: 0.4em;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+</style>

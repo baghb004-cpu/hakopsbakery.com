@@ -91,10 +91,18 @@ const nutritionRows = nutrition
       { label: "Protein", value: `${nutrition.proteinGrams} g` },
     ]
   : [];
+
+/*
+  The title says what this page is, not only what the product is. The shop
+  page for the same product is also called "Armenian Gata", and two indexable
+  pages sharing one title is the thing that makes a search engine keep one of
+  them and drop the other. This one is the label somebody scans off the tray,
+  so it is named for what it carries.
+*/
 ---
 
 <Base
-  title={product.name}
+  title={`${product.name}: ingredients and allergens`}
   description={`What is in ${product.name}: the full ingredient list, the allergen statement, how to keep it, and the kitchen it was made in.`}
 >
   <article class="label">

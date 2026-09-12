@@ -1,0 +1,334 @@
+/*
+  The breakpoint system. Six bands, one shape rule, and one enhancement for
+  a fold that most browsers cannot see.
+
+  Read docs/DEVICES.md before changing a number in here. Every figure below
+  comes from section 5 of that file, which was measured rather than guessed,
+  and this file is the only place the site turns those figures into layout.
+
+  ---------------------------------------------------------------------------
+  HOW THIS WORKS
+
+  Almost nothing in here is a layout rule. The bands move TOKENS, and the
+  layout primitives in global.css read those tokens, so a component inherits
+  the right rhythm and the right type size without carrying a media query of
+  its own. One place to change, one place to look when it is wrong.
+
+  The knobs, all defined with their base values in tokens.css:
+
+    --type-lift          multiplies the fluid display steps. 1 is the scale
+                         as drawn. Above 1 opens it up, below 1 pulls it in.
+    --band-space         vertical rhythm between major sections
+    --band-space-tight   the same, for a shorter section
+    --flow-space         the gap between paragraphs in a column of prose
+    --split-gap          the gutter between two columns
+    --split-aside        the narrow column of a two column split
+    --hero-block-max     how much screen height a hero may take
+    --gutter             the page side padding
+
+  ---------------------------------------------------------------------------
+  THE BANDS
+
+    narrow       to 359px    Galaxy Fold cover at 344. Survival: one column,
+                             nothing clipped, nothing lost off the edge
+    phone        360 to 429  Galaxy S at 360, iPhone SE at 375, iPhone 13 to
+                             16 at 390, Pixel at 412. The base, below
+    phone-wide   430 to 519  iPhone Pro Max at 430, iPhone Duo FOLDED at 466
+    tweener      520 to 767  iPhone Duo UNFOLDED at 626, and the iPad mini at
+                             744. The dead zone
+    tablet       768 to 1023 iPad portrait at 768 and 820, iPad Pro 11 at 834,
+                             Galaxy Z Fold 7 unfolded at roughly 883
+    desktop      1024 up     iPad Pro 13 at 1024, and every laptop
+
+  The tweener is the band no stock system has. A 7.6 inch screen reports 626
+  CSS pixels, which is under every framework's tablet breakpoint, so the
+  default outcome is phone styling on a screen the size of a hardback book.
+  This band exists to stop that.
+
+  The numbers are written in rem, which is 16px at the browser default, so
+  22.5rem is the 360px in the table. That is deliberate: a reader who has
+  turned their default font size up gets the roomier band sooner, which is
+  the direction that helps them.
+
+  ---------------------------------------------------------------------------
+  TWO RULES THAT ARE NOT WIDTH
+
+  1. SHAPE. A viewport can be wide and still have no room. The iPhone Duo
+     folded is 466 by 678, a ratio of 1:1.45, where every other phone is near
+     1:2.2. The shape block near the bottom of this file pulls the vertical
+     rhythm in when height is the scarce dimension, which also catches any
+     phone turned on its side.
+
+  2. THE FOLD IS NEVER LOAD BEARING. Safari does not implement CSS Viewport
+     Segments, so the first foldable iPhone ships without the API written for
+     foldables. Layout therefore responds to width and shape only. Where the
+     API does exist (Chrome, Edge) it widens a column gutter so a line of
+     text does not sit across the hinge, and that is all it does. Take the
+     last block of this file away and nothing breaks.
+*/
+
+/* ------------------------------------------------------------------ */
+/* The band edges, for anything that has to agree with them            */
+/* ------------------------------------------------------------------ */
+
+/*
+  A custom property cannot be used inside a media query: the query is
+  resolved before custom properties exist. So these are documentation and a
+  handle for tooling, not the source of the numbers below.
+
+  The other way round is @custom-media, which would let each edge be written
+  once. It is not native CSS in any browser, so it means a preprocessing step
+  this stylesheet otherwise has no need of, on a site that one person has to
+  maintain. Six numbers written out and a test that checks them beat a build
+  step that has to be understood before a breakpoint can be moved.
+
+  tests/breakpoints.test.ts reads this file and docs/DEVICES.md and fails if
+  the two disagree, which is what keeps the duplication honest.
+*/
+:root {
+  --bp-phone: 360px;
+  --bp-phone-wide: 430px;
+  --bp-tweener: 520px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+
+  /* The shape threshold. Wider than this ratio is a short viewport. */
+  --shape-short-ratio: 1 / 1.6;
+
+  /*
+    The hinge, when the browser will admit to one. Zero everywhere else, so
+    every rule that reads them works on a screen with no fold at all.
+  */
+  --fold-gap: 0px;
+  --fold-gap-block: 0px;
+}
+
+/* ------------------------------------------------------------------ */
+/* narrow, to 359px                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+  The Galaxy Fold cover screen at 344, and the 320 floor that WCAG reflow
+  asks for. There is no room here for anything but survival, so the type
+  scale steps down one notch: body copy to 16px, small copy to 14px.
+
+  That is not a style choice. At 320 the sticky order bar on a product page
+  gives its note about 140px beside the button, and at 15px the words "Not
+  taking orders yet" measured 149 and were cut off mid word. Stepping the
+  scale down fits them. Form controls are unaffected, because global.css
+  floors every one of them at 16px so iOS never zooms on focus.
+
+  The page gutter is not reduced here, and it is now a choice rather than a
+  constraint. It used to be a constraint: Hero.astro reproduced the container
+  padding as a literal to pull its photograph full bleed, so a narrower
+  gutter here would have pushed the photograph past the right hand edge. That
+  component reads var(--gutter) now, so this band could take a couple of
+  pixels back. It does not, because 16px either side of a 344px screen is
+  already the least this page can give and still look like a page.
+*/
+@media (max-width: 22.4375rem) {
+  :root {
+    --text-base: 1rem;
+    --text-sm: 0.875rem;
+    --type-lift: 0.96;
+    --band-space: clamp(2.25rem, 7vw, 6rem);
+    --band-space-tight: clamp(1.5rem, 4vw, 3.25rem);
+    --flow-space: 1.05em;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* phone, 360 to 429px                                                 */
+/* ------------------------------------------------------------------ */
+
+/*
+  The most common screen in the world and the one this site is drawn for, so
+  it has no block of its own. The base values in tokens.css ARE this band.
+  Anything below adjusts away from here.
+*/
+
+/* ------------------------------------------------------------------ */
+/* phone-wide, 430 to 519px                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+  iPhone Pro Max at 430, and the iPhone Duo folded at 466. A little more
+  width than a phone, so a little more air, but nothing structural: the Duo
+  folded is also very short, and the shape block below takes most of this
+  back on that device specifically.
+*/
+@media (min-width: 26.875rem) {
+  :root {
+    --type-lift: 1.02;
+    --band-space-tight: clamp(2.25rem, 4vw, 3.25rem);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* tweener, 520 to 767px. The one that matters                         */
+/* ------------------------------------------------------------------ */
+
+/*
+  The iPhone Duo unfolded at 626 by 890 lives here, and so does anything
+  between a large phone and a small tablet.
+
+  This is a 7.6 inch screen, and an iPad mini at 744 is in the same band. A
+  stock breakpoint set hands both of them the layout drawn for a 360px phone,
+  because the number is small even though the glass is not. So it opens up: two
+  columns where the page has one (via .split in global.css), a heavier
+  vertical rhythm, and a display scale seven percent above the phone, which
+  is what makes the hero read as a hero rather than as a large phone banner.
+
+  The lift closes back towards 1 in the tablet band, because from 768 up the
+  clamps in tokens.css have enough viewport width to do the work themselves.
+*/
+@media (min-width: 32.5rem) {
+  :root {
+    --type-lift: 1.07;
+    --band-space: clamp(3.5rem, 8vw, 6.5rem);
+    --band-space-tight: clamp(2.5rem, 5vw, 3.75rem);
+    --flow-space: 1.2em;
+    --split-gap: clamp(2rem, 5vw, 3rem);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* tablet, 768 to 1023px                                               */
+/* ------------------------------------------------------------------ */
+
+/*
+  iPad portrait, and the Galaxy Z Fold 7 unfolded at roughly 883. The iPad
+  mini at 744 sits just under this, in the tweener. Every component that has
+  a two column rule of its own already has it somewhere between 46rem and
+  56rem, so this band is about rhythm rather than structure.
+*/
+@media (min-width: 48rem) {
+  :root {
+    --type-lift: 1.03;
+    --band-space: clamp(3.75rem, 7vw, 6rem);
+    --band-space-tight: clamp(2.25rem, 4vw, 3.25rem);
+    --flow-space: 1.15em;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* desktop, 1024px and up                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+  The scale in tokens.css was drawn at these widths, so the lift goes back to
+  1 and the clamps run unmodified.
+*/
+@media (min-width: 64rem) {
+  :root {
+    --type-lift: 1;
+    --band-space: clamp(4rem, 7vw, 6rem);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Shape. Short viewports, whatever their width                        */
+/* ------------------------------------------------------------------ */
+
+/*
+  Last, so it wins over whichever width band the screen also matched.
+
+  Two conditions, and it needs both.
+
+  The RATIO catches a viewport that is the wrong shape for a phone layout:
+  1:1.6 or wider, against the 1:2.2 that every ordinary phone reports. The
+  iPhone Duo folded is 1:1.45. A phone in landscape is far past it.
+
+  The HEIGHT is what stops the rule firing on a screen that is merely square.
+  The Duo unfolded is 626 by 890, a ratio of 1:1.42, and it would match on
+  shape alone. It is not short. It has 890 pixels of height and it wants the
+  roomy tweener treatment, not a squeezed one. 44rem is 704px, which clears
+  the Duo folded at 678 and falls well under the 890.
+
+  An iPhone SE is shorter still, at 667, and it is the ratio that excludes it:
+  at 1:1.78 it is an ordinary tall phone that happens to be small. Both
+  conditions are doing work, which is why both are here.
+
+  What changes: vertical rhythm comes in, paragraphs sit closer, the display
+  scale drops back so a heading does not eat a third of the screen, and the
+  hero is told it may take less height. Nothing horizontal moves, because
+  horizontally these screens are comfortable. That is the whole point of
+  treating shape separately from width.
+
+  Rhythm is measured in svh here rather than vw, because on these screens the
+  scarce dimension is the one being spent. svh and not vh, so the value does
+  not jump when the browser chrome collapses.
+*/
+/*
+  Phones, whatever their shape.
+
+  The shape rule below this one only fires on a viewport that is short AND
+  wide, so an ordinary tall phone never matched it and kept the full 56svh
+  hero. Measured on a 390 by 844 iPhone that put the hero photograph at 473px,
+  and the only action a visitor can currently take, joining the waiting list,
+  177px below the fold. The brief asks for the product and the way to buy it
+  above the fold and nothing else, so a photograph eating 56 percent of the
+  screen before the header is counted is the wrong trade.
+
+  40svh measured as the point where the action clears on most phones without
+  the photograph becoming a letterbox strip. See docs/DECISIONS.md D-010 for
+  the per device numbers, including the three sizes where it still does not
+  quite clear.
+*/
+@media (max-width: 47.9375rem) {
+  :root {
+    --hero-block-max: 40svh;
+  }
+}
+
+@media (max-width: 63.9375rem) and (min-aspect-ratio: 1 / 1.6) and (max-height: 44rem) {
+  :root {
+    --type-lift: 0.94;
+    --band-space: clamp(1.75rem, 5svh, 3.5rem);
+    --band-space-tight: clamp(1.25rem, 3.5svh, 2.5rem);
+    --flow-space: 1.05em;
+    --hero-block-max: 44svh;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The fold, where the browser will admit to one                       */
+/* ------------------------------------------------------------------ */
+
+/*
+  CSS Viewport Segments, in Chrome and Edge. Not in Safari, which is to say
+  not on the iPhone Duo, which is to say this block runs on a minority of the
+  foldables it describes. That is exactly why it may only ever ADD something.
+
+  There is no @supports test worth writing here: env() falls back to its
+  second argument in browsers that do not know the variable, so a support
+  query would report true everywhere and prove nothing. The media feature is
+  the real test, and a browser that does not implement it simply never
+  matches, leaving --fold-gap at the 0px set above.
+
+  What it buys: --fold-gap is the width of the hinge, so a two column layout
+  can widen its gutter to at least that and no line of text lands in the
+  crease. Nothing is positioned by it, nothing is hidden by it, and no layout
+  decision is taken on the strength of it.
+*/
+@media (horizontal-viewport-segments: 2) {
+  :root {
+    --fold-gap: max(
+      0px,
+      calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px))
+    );
+  }
+}
+
+/*
+  The other way up: a device open like a small laptop, with the hinge running
+  across the screen. Vertical rhythm around the crease rather than a gutter.
+*/
+@media (vertical-viewport-segments: 2) {
+  :root {
+    --fold-gap-block: max(
+      0px,
+      calc(env(viewport-segment-top 1 0, 0px) - env(viewport-segment-bottom 0 0, 0px))
+    );
+  }
+}

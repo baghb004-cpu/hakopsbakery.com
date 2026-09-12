@@ -1,0 +1,278 @@
+---
+/**
+ * One question, one page.
+ *
+ * Generated from `src/content/faq/`. The point of the route is the head of
+ * the document: a title and a meta description written for this question and
+ * nothing else, so the page can rank for it, be the landing page for an ad
+ * group about it, and be sent to one customer as one link. A fragment on a
+ * shared page can do none of those things. See docs/DECISIONS.md D-008.
+ *
+ * The links at the foot are not decoration either. Somebody who arrives from
+ * a search lands in the middle of the site with no idea what else is here, so
+ * every page carries the rest of its group and, where there is one, a
+ * question in another group worth reading next.
+ */
+import { getCollection } from "astro:content";
+
+import Base from "@layouts/Base.astro";
+import Breadcrumbs from "@components/Breadcrumbs.astro";
+import Button from "@components/Button.astro";
+import SeedRule from "@components/SeedRule.astro";
+import { business } from "@config/site";
+import {
+  answerHtml,
+  buildAnswerContext,
+  checkedMetaDescription,
+  checkedQuestions,
+  faqGroup,
+  fillText,
+  questionHref,
+  type FaqEntry,
+} from "./_answers";
+
+export async function getStaticPaths() {
+  const questions = checkedQuestions(await getCollection("faq"));
+
+  return questions.map((entry) => {
+    const siblings = questions.filter(
+      (other) => other.data.group === entry.data.group && other.id !== entry.id,
+    );
+
+    /*
+      Related questions are the cross group ones. A slug already shown as a
+      sibling would just be listed twice, and a slug that does not exist is a
+      dead link, so both are caught here rather than shipped.
+    */
+    const related = entry.data.related.map((slug) => {
+      const target = questions.find((other) => other.data.slug === slug);
+      if (target === undefined) {
+        throw new Error(
+          `src/content/faq/${entry.id}.md lists "${slug}" as related, and no ` +
+            "question has that slug.",
+        );
+      }
+      return target;
+    });
+
+    return {
+      params: { slug: entry.data.slug },
+      props: {
+        entry,
+        siblings,
+        related: related.filter((target) => target.data.group !== entry.data.group),
+      },
+    };
+  });
+}
+
+interface Props {
+  entry: FaqEntry;
+  siblings: FaqEntry[];
+  related: FaqEntry[];
+}
+
+const { entry, siblings, related } = Astro.props;
+const ctx = await buildAnswerContext();
+const where = `src/content/faq/${entry.id}.md`;
+
+const group = faqGroup(entry.data.group);
+const answer = answerHtml(entry, ctx);
+
+const notes = entry.data.notes
+  .filter((note) => note.when === undefined || ctx.flags[note.when] === true)
+  .map((note) => ({
+    title: fillText(note.title, ctx, `${where}, note title`),
+    body: fillText(note.body, ctx, `${where}, note body`),
+  }));
+---
+
+<Base
+  title={fillText(entry.data.seoTitle, ctx, `${where}, seoTitle`)}
+  description={checkedMetaDescription(entry, ctx)}
+>
+  <article class="answer">
+    <div class="page band--tight">
+      <div class="prose-col">
+        <Breadcrumbs trail={[{ label: "Questions", href: "/faq/" }, { label: entry.data.question }]} />
+        <h1 class="answer__question">{entry.data.question}</h1>
+      </div>
+
+      <div class="prose-col answer__body" set:html={answer} />
+
+      {
+        notes.map((note) => (
+          <aside class="prose-col answer__note">
+            <p class="answer__note-title">{note.title}</p>
+            <p class="answer__note-body">{note.body}</p>
+          </aside>
+        ))
+      }
+    </div>
+
+    <SeedRule density="sparse" />
+
+    <section class="page band--tight" aria-labelledby="siblings-title">
+      <div class="prose-col">
+        <h2 id="siblings-title" class="answer__more-title">
+          Other questions about {group.inline}
+        </h2>
+
+        <ul class="answer__more">
+          {
+            siblings.map((other) => (
+              <li class="answer__more-item">
+                <a class="answer__more-link" href={questionHref(other.data.slug)}>
+                  {other.data.question}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+
+        {
+          related.length > 0 && (
+            <>
+              <h2 class="answer__more-title answer__more-title--second">Worth reading next</h2>
+              <ul class="answer__more">
+                {related.map((other) => (
+                  <li class="answer__more-item">
+                    <a class="answer__more-link" href={questionHref(other.data.slug)}>
+                      {other.data.question}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
+        }
+
+        <p class="answer__all">
+          <a href="/faq/">All the questions, in four groups</a>
+        </p>
+      </div>
+    </section>
+
+    <div class="page band--tight answer__foot">
+      <div class="prose-col">
+        <p>
+          If that did not answer it, ask. It goes to {business.owner} and he
+          answers it himself.
+        </p>
+        <p class="answer__actions">
+          <Button href="/contact" variant="secondary">Contact Hakop</Button>
+        </p>
+      </div>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .answer__question {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+  }
+
+  .answer__body {
+    margin-top: 1.1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-body);
+  }
+
+  .answer__body :global(p + p) {
+    margin-top: 1.15em;
+  }
+
+  .answer__body :global(a) {
+    color: var(--color-link);
+  }
+
+  .answer__body :global(a:hover) {
+    color: var(--color-link-bright);
+  }
+
+  /* ---- Something nobody has decided yet ---- */
+
+  .answer__note {
+    margin-top: 1.5rem;
+    padding: clamp(0.9rem, 3vw, 1.25rem);
+    border: 1px dashed var(--color-line-strong);
+    border-radius: var(--radius-md);
+  }
+
+  .answer__note-title {
+    font-weight: 700;
+    color: var(--color-crust);
+  }
+
+  .answer__note-body {
+    margin-top: 0.4rem;
+    font-size: var(--text-sm);
+    color: var(--color-crust-soft);
+  }
+
+  /* ---- The way out ---- */
+
+  .answer__more-title {
+    font-size: var(--text-xl);
+  }
+
+  .answer__more-title--second {
+    margin-top: 2rem;
+  }
+
+  .answer__more {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: grid;
+    /* Each row below is a 44px target. Eight pixels is the floor between
+       two of them, or a thumb one pixel off opens the wrong answer. */
+    gap: 0.5rem;
+  }
+
+  .answer__more-item {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .answer__more-link {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-link);
+    text-decoration: none;
+  }
+
+  .answer__more-link:hover {
+    color: var(--color-link-bright);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  /* A link on its own line is a target, not prose, so it gets a target's
+     height rather than the height of a line of text. */
+  .answer__all {
+    margin-top: 1rem;
+    font-size: var(--text-sm);
+  }
+
+  .answer__all a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* ---- Foot ---- */
+
+  .answer__foot {
+    border-top: 1px solid var(--color-line);
+    color: var(--color-crust-soft);
+  }
+
+  .answer__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+</style>

@@ -312,20 +312,45 @@ const sizes = product.variants.map((variant) => variant.label).join(", ");
     font-size: var(--text-sm);
   }
 
+  /*
+    Flex and not grid, and it wraps. Both halves of that are the fix for one
+    failure.
+
+    A two column grid with a 6.5rem label track keeps that track whatever is
+    left over for the value. That is fine at the text size this was drawn at,
+    and it is not fine one setting up. With the browser default font size at
+    24px on a 344px screen, 6.5rem is 156px of a 246px row, which leaves 72
+    for the value, and the six allergens came out one word to a line with
+    "Almonds," measuring 93 in that 72. Every line ran out of its column into
+    the card's padding, and the card carries overflow: clip, so a little
+    further in and the words are cut rather than merely ragged. Allergens are
+    the one thing on this page that nobody may be left to guess at.
+
+    Wrapped flex keeps both on one row while both fit, which is every
+    ordinary screen at the ordinary text size and looks exactly as before,
+    and gives the value a full width line under its label when they do not.
+    The label basis can shrink too, so a row too narrow even for the label
+    alone still cannot push the card sideways.
+  */
   .card__fact {
-    display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem 0.75rem;
     padding-block: 0.5rem;
     border-top: 1px solid var(--color-line);
   }
 
   .card__fact dt {
+    flex: 0 1 6.5rem;
     color: var(--color-crust-soft);
     font-weight: 600;
   }
 
   .card__fact dd {
+    /* A basis wide enough that the value asks for a line of its own rather
+       than accepting a sliver of one. */
+    flex: 1 1 11ch;
+    min-width: 0;
     margin: 0;
     color: var(--color-crust);
   }

@@ -1,0 +1,155 @@
+---
+/**
+ * The shell every page under /gata shares.
+ *
+ * Underscore prefixed, so Astro does not route it. It is not in
+ * `src/layouts/` because it is not a page shell: it composes `Base.astro`,
+ * which is, and which is what carries the compliance footer that has to be
+ * on every page of this site.
+ *
+ * What it gives each explainer: the breadcrumb trail, the h1, and the links
+ * to its siblings, so a person who arrived from a search for one of these
+ * can see the other three without going back to a hub first.
+ */
+import Base from "@layouts/Base.astro";
+import Breadcrumbs from "@components/Breadcrumbs.astro";
+import SeedRule from "@components/SeedRule.astro";
+import { business } from "@config/site";
+import { GATA_PAGES, gataHref, gataPage } from "./_pages";
+
+interface Props {
+  /** Which page this is. Drives the h1, the trail and the sibling list. */
+  slug: string;
+  /** The title element. Written for this page, never the site default. */
+  seoTitle: string;
+  /** The meta description. Written for this page, never the site default. */
+  description: string;
+}
+
+const { slug, seoTitle, description } = Astro.props;
+
+const page = gataPage(slug);
+const siblings = GATA_PAGES.filter((other) => other.slug !== slug);
+
+/*
+  The description is the sentence a search result shows, and a page carrying
+  its own is the whole reason these are separate pages rather than headings on
+  one. Google cuts one off somewhere near 160 characters, and one under about
+  70 usually means a page was handed the site default by accident. Both are
+  worth failing a build over rather than discovering in Search Console.
+*/
+if (description.length < 60 || description.length > 175) {
+  throw new Error(
+    `/gata/${slug} has a meta description of ${description.length} characters. ` +
+      "Aim between 60 and 175, because that is what a search result shows.",
+  );
+}
+---
+
+<Base title={seoTitle} description={description}>
+  <article class="explainer">
+    <div class="page band--tight">
+      <div class="prose-col">
+        <Breadcrumbs
+          trail={[{ label: "What gata is", href: "/gata/" }, { label: page.heading }]}
+        />
+        <h1 class="explainer__title">{page.heading}</h1>
+      </div>
+
+      <slot />
+    </div>
+
+    <SeedRule density="sparse" />
+
+    <section class="page band--tight" aria-labelledby="more-gata">
+      <div class="prose-col">
+        <h2 id="more-gata" class="explainer__more-title">The rest of it</h2>
+
+        <ul class="explainer__more">
+          {
+            siblings.map((other) => (
+              <li class="explainer__more-item">
+                <a class="explainer__more-link" href={gataHref(other.slug)}>
+                  {other.label}
+                </a>
+              </li>
+            ))
+          }
+          <li class="explainer__more-item">
+            <a class="explainer__more-link" href="/faq/storage/">How to keep a tray</a>
+          </li>
+        </ul>
+
+        <p class="explainer__hub">
+          <a href="/gata/">Back to what gata is</a>
+        </p>
+      </div>
+    </section>
+
+    <div class="page band--tight explainer__foot">
+      <div class="prose-col">
+        <p>
+          Gata is baked in {business.city}, California, and sold inside
+          California only. <a href="/story">Hakop is the person baking it</a>.
+        </p>
+      </div>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .explainer__title {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+  }
+
+  .explainer__more-title {
+    font-size: var(--text-xl);
+  }
+
+  .explainer__more {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: grid;
+    /* Each row is a 44px target, and eight pixels between two of them is
+       the floor. */
+    gap: 0.5rem;
+  }
+
+  .explainer__more-item {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .explainer__more-link {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-link);
+    text-decoration: none;
+  }
+
+  .explainer__more-link:hover {
+    color: var(--color-link-bright);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  /* A link on its own line is a target, not prose, so it gets a target's
+     height rather than the height of a line of text. */
+  .explainer__hub {
+    margin-top: 1rem;
+    font-size: var(--text-sm);
+  }
+
+  .explainer__hub a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .explainer__foot {
+    border-top: 1px solid var(--color-line);
+    color: var(--color-crust-soft);
+  }
+</style>

@@ -78,16 +78,31 @@
   --font-display: "Noto Serif Armenian", "Iowan Old Style", Georgia, serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
 
+  /*
+     One knob for the whole display scale, moved by the bands in
+     breakpoints.css and by nothing else. 1 is the scale as drawn here.
+
+     It exists because the alternative is five more clamp expressions per
+     band, all of which have to stay in step with each other by hand. A
+     multiplier keeps the ratios between the steps intact whatever the band
+     does, which is the property that makes a type scale a scale.
+
+     The three fixed steps below are outside it on purpose. Body copy should
+     not breathe in and out as a screen changes shape, and a form control
+     that dips under 16px makes iOS zoom the page on focus.
+  */
+  --type-lift: 1;
+
   /* Fluid scale. Each step is clamped so nothing collapses at 320px or
      runs away at 1920px. Ratios are 1.2 on mobile, opening to 1.25 wide. */
   --text-xs: 0.8125rem; /* 13px, meta only, never body */
   --text-sm: 0.9375rem; /* 15px */
   --text-base: 1.0625rem; /* 17px, body default */
-  --text-lg: clamp(1.1875rem, 1.1rem + 0.35vw, 1.375rem);
-  --text-xl: clamp(1.375rem, 1.24rem + 0.6vw, 1.75rem);
-  --text-2xl: clamp(1.625rem, 1.4rem + 1.05vw, 2.25rem);
-  --text-3xl: clamp(2rem, 1.6rem + 1.9vw, 3.125rem);
-  --text-4xl: clamp(2.5rem, 1.85rem + 3vw, 4.25rem);
+  --text-lg: calc(clamp(1.1875rem, 1.1rem + 0.35vw, 1.375rem) * var(--type-lift));
+  --text-xl: calc(clamp(1.375rem, 1.24rem + 0.6vw, 1.75rem) * var(--type-lift));
+  --text-2xl: calc(clamp(1.625rem, 1.4rem + 1.05vw, 2.25rem) * var(--type-lift));
+  --text-3xl: calc(clamp(2rem, 1.6rem + 1.9vw, 3.125rem) * var(--type-lift));
+  --text-4xl: calc(clamp(2.5rem, 1.85rem + 3vw, 4.25rem) * var(--type-lift));
 
   --leading-tight: 1.08;
   --leading-snug: 1.25;
@@ -102,6 +117,22 @@
   --container-page: 72rem; /* the one container width */
   --container-prose: 38rem; /* caps body copy near 70 characters */
   --container-wide: 84rem; /* full bleed photography only */
+
+  /*
+     Rhythm and gutters. These are the values the six bands in
+     breakpoints.css move, and the layout primitives in global.css are the
+     only things that read them, which is what lets a component inherit the
+     right spacing on a foldable without owning a media query.
+
+     The values here are the phone band, 360 to 429px, because that is the
+     screen this site is drawn for. Every other band adjusts away from it.
+  */
+  --gutter: clamp(1rem, 4vw, 2.5rem); /* page side padding */
+  --band-space: clamp(3rem, 7vw, 6rem); /* between major sections */
+  --band-space-tight: clamp(2rem, 4vw, 3.25rem);
+  --flow-space: 1.15em; /* between paragraphs in a column */
+  --split-gap: clamp(1.5rem, 4vw, 2.5rem); /* between two columns */
+  --split-aside: 21rem; /* the narrow column of a split */
 
   /* ---- Radius. Restrained. Nothing is a pill. ------------------------ */
   --radius-sm: 2px;
@@ -122,6 +153,23 @@
   read as paper on a table rather than as floating browser chrome.
 */
 :root {
+  /*
+     How much screen height a hero may take. svh rather than vh so it does
+     not jump when the address bar collapses, and never 100 of anything.
+     The shape rule in breakpoints.css pulls this in to 44svh on a short
+     viewport, which is the iPhone Duo folded and every phone in landscape.
+
+     Hero.astro reads it, so the hero gets that rule without owning a media
+     query. On the Duo folded, 466 by 678, it is the difference between the
+     heading arriving under the bottom bar and arriving above it.
+
+     It sits out here rather than in @theme above for a mechanical reason:
+     Tailwind drops a theme variable that nothing in the source references
+     by its Tailwind name, and nothing does. Declared in :root it is always
+     in the stylesheet for the component that reads it.
+  */
+  --hero-block-max: 56svh;
+
   --lift-1: 0 1px 0 0 var(--color-line);
   --lift-2:
     0 1px 0 0 var(--color-line), 0 2px 6px -2px rgb(58 35 23 / 0.14);

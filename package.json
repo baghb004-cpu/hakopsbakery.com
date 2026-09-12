@@ -16,11 +16,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint:copy": "node scripts/check-copy.mjs",
-    "verify": "npm run lint:copy && npm run lint:contrast && npm run check && npm run test && npm run build && npm run lint:html",
+    "verify": "npm run lint:copy && npm run lint:contrast && npm run check && npm run test && npm run build && npm run lint:html && npm run test:viewports -- --no-build",
     "hooks:install": "git config core.hooksPath .githooks",
     "prepare": "git config core.hooksPath .githooks || true",
     "lint:contrast": "node scripts/check-contrast.mjs",
     "lint:html": "node scripts/check-html.mjs",
+    "test:viewports": "node scripts/check-viewports.mjs",
     "fonts:subset": "node scripts/subset-fonts.mjs",
     "status": "node scripts/status.mjs"
   },

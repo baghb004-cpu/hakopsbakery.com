@@ -1,0 +1,90 @@
+---
+/**
+ * The glaze bar. The bottom navigation on a phone.
+ *
+ * WHY IT IS GLAZE AND NOT GLASS
+ *
+ * The material cue asked for is Apple's: translucent, depth aware, specular,
+ * adaptive to whatever is behind it. Copied literally that is cold frosted
+ * glass, which belongs to somebody else's product and is the wrong surface
+ * for a bakery whose whole world is warm, baked and matte.
+ *
+ * There is exactly one glossy thing here and it is the most characteristic
+ * surface on the tray: the egg wash. It is the shine on top of the gata, it
+ * is where the light catches, and the gold token in tokens.css is called
+ * `eggwash` for that reason. So the bar is a thin warm film with a specular
+ * catch along its top edge, uneven the way a brushed surface is uneven,
+ * gold at its core rather than white. The behaviour is Apple's. The material
+ * is this bakery's.
+ *
+ * The whole of that lives in src/styles/glaze.css, which explains each layer
+ * next to the layer.
+ *
+ * WHAT THIS FILE IS RESPONSIBLE FOR
+ *
+ *   1. Real semantics. A nav with its own accessible name, a list, a link
+ *      per destination, and aria-current on the one you are looking at.
+ *   2. Zero JavaScript. Not one byte, on any page. The bar is CSS and five
+ *      anchors, which is what lets it sit on the label QR page that somebody
+ *      scans on cellular while worried about an allergy.
+ *   3. Deciding what is in it, from the same config the header reads.
+ *
+ * NO COUNT ON THE CART, AND WHY
+ *
+ * The header's cart badge is four hundred bytes of inline script that does
+ * `querySelector('[data-cart-count]')`, singular, and the header comes first
+ * in the document. A second element carrying that attribute would never be
+ * painted, so the bar would ship a badge that is permanently blank. Rather
+ * than add a second script to every page for a number that is already on
+ * screen, the bar carries the word and the header carries the count. If
+ * SiteHeader.astro ever moves to `querySelectorAll`, one attribute here
+ * turns the badge on. See the note in docs/DECISIONS.md D-009.
+ */
+import { storeOpen } from "@config/site";
+import "@/styles/glaze.css";
+
+const path = Astro.url.pathname;
+
+/*
+  Same rule the header uses, and it has to be: /faq is current while you are
+  reading /faq/delivery/, now that every answer is its own page.
+*/
+const isHere = (href: string) =>
+  href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
+
+/*
+  Short labels, because five of them share a 344px screen on the oldest
+  phone this site supports. Each one is the visible label AND the accessible
+  name, so nothing is renamed for a screen reader.
+
+  Shop stays in the list while the store is closed, which is the one place
+  this bar differs from the header. /shop is a real page in the closed
+  state: it carries the tray sizes, the lead time, the allergens and the
+  waiting list, and it says plainly that nothing can be ordered yet.
+*/
+const links = [
+  { href: "/", label: "Home", when: true },
+  { href: "/shop", label: "Shop", when: true },
+  { href: "/gata", label: "Gata", when: true },
+  { href: "/faq", label: "Questions", when: true },
+  { href: "/cart", label: "Cart", when: storeOpen },
+].filter((link) => link.when);
+---
+
+<nav class="glaze-bar" aria-label="Around the site">
+  <ul class="glaze-bar__list">
+    {
+      links.map((link) => (
+        <li class="glaze-bar__item">
+          <a
+            class="glaze-bar__link"
+            href={link.href}
+            aria-current={isHere(link.href) ? "page" : undefined}
+          >
+            <span class="glaze-bar__label">{link.label}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>

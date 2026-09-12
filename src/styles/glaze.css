@@ -1,0 +1,773 @@
+/*
+  The glaze bar. The material, the depth, and the room it takes.
+
+  Read src/components/GlazeBar.astro first for what the bar is and why it is
+  glaze rather than glass. This file is the surface itself, layer by layer,
+  and the two rules that stop it covering anything.
+
+  ---------------------------------------------------------------------------
+  THE MATERIAL, IN THE ORDER LIGHT MEETS IT
+
+  A brushed egg wash on a baked top is not a pane of glass, and the
+  differences are the whole design:
+
+    1. It is a FILM, not a slab. You see the colour of what is under it,
+       warmed, never a neutral grey frost. So the ground is a warm translucent
+       gradient and the backdrop is saturated rather than only blurred.
+    2. It is UNEVEN. A brush leaves more wash in some places than others, so
+       the catch along the top edge varies in strength along its length
+       instead of being a clean one pixel line of white.
+    3. Its highlight is WARM AT THE CORE. Gold, from the token literally
+       named eggwash, not white.
+    4. The edge CARAMELISES. Where the film thickens at a rim it goes darker
+       and browner, and the light sits just inside that darker line.
+    5. It RUNS AND POOLS. Wash brushed at an edge runs down from it, thick
+       where it left the edge and thinning as it spreads, with a lit line
+       where the pool stops. That is what marks the page you are on.
+
+  ---------------------------------------------------------------------------
+  WHAT IT COSTS, MEASURED RATHER THAN ASSUMED
+
+  backdrop-filter is the expensive part of any material like this, because a
+  fixed element over a scrolling page makes the browser re-read and re-filter
+  its backdrop on every frame. The brief targets 60fps on a mid range Android
+  from three years ago, so it was measured: Chromium at 4x and at 20x CPU
+  throttle, on a software rasteriser (ANGLE over SwiftShader), scrolling the
+  home page at 390 by 844 and a device pixel ratio of 3. Full table in
+  docs/DECISIONS.md D-009.
+
+  MEASURE THE COMPOSITOR, NOT THE FRAME RATE. A frame interval cannot answer
+  this question. It is quantised to the display's 16.7ms, so every variant
+  that fits inside the budget reports the same number and the only thing it
+  can tell you is whether frames were dropped. The cost lives in
+  DirectRenderer::DrawFrame, the compositor's draw of one frame, which a
+  trace does report. Per composited frame, median of five runs at 4x:
+
+    no bar at all                 0.052ms
+    bar, no backdrop-filter       0.051ms
+    bar, blur(16px) saturate      0.114ms     <- what ships
+    bar, blur(8px) saturate       0.107ms
+    bar, blur(28px) saturate      0.118ms
+    bar, saturate only            0.148ms
+    the same filter, whole screen 0.252ms, and 30.6fps
+
+  Two things fall out of that, and the second one is the surprise.
+
+  AREA, NOT RADIUS. Every radius costs the same to within noise. What costs
+  is how much of the screen is under the filter: the identical filter over
+  the whole viewport halves the frame rate, 30.6fps against 59.8. This bar
+  filters 6.6 percent of the screen and holds 59.8fps at 4x and 59.3fps at
+  20x. The filter is worth about 0.06ms of compositor draw per frame, which
+  is a third of one percent of a 16.7ms budget. It stays.
+
+  AND `saturate` IS NOT FREE. The old note in this file said it was, on the
+  reasoning that a colour matrix is not a gather. Measured, saturate alone
+  costs at least as much as blur and saturate together. The price is not the
+  kernel, it is the extra render pass: the moment a backdrop-filter of any
+  kind exists, the compositor copies the backdrop into a texture and draws
+  the element in a pass of its own, and that copy is the bill. Removing one
+  function from the list saves nothing at all. Removing the property saves
+  everything.
+
+  The radius is a legibility number, not a performance one, and it was read
+  off the screen rather than reasoned about. With saturate alone and no blur,
+  the largest heading on the site (33px, the home page h1) is fully readable
+  through the film and collides with the labels. At 8px it is already gone.
+  16px is comfortably past the threshold and costs the same as 8px, so it
+  stays there. If you change it, screenshot the bar over that heading.
+
+  ---------------------------------------------------------------------------
+  THE PREFERENCES THIS HONOURS
+
+    prefers-reduced-transparency  the film goes solid. The rim, the catch and
+                                  the pool all still draw, because they are
+                                  painted colour rather than see through, so
+                                  the bar reads as a deliberate matte version
+                                  of itself rather than as a broken one.
+    prefers-reduced-motion        nothing moves. There is no ambient
+                                  animation here in the first place, on
+                                  purpose: a sheen that drifts forever repaints
+                                  a composited layer forever, and it buys a
+                                  bakery nothing. The bar responds to a press,
+                                  and that is the only motion in it.
+*/
+
+/* ------------------------------------------------------------------ */
+/* The numbers, and the one variable the rest of the page reads        */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /*
+    The rail: the row of targets, not counting the home indicator. 56px
+    gives a 13px label a 56 by 56 target, comfortably past the 44 the brief
+    asks for, and matches the height a person's thumb expects at the bottom
+    of a phone.
+  */
+  --glaze-bar-rail: 3.5rem;
+
+  /*
+    THE height of the bar, home indicator included. This is the number a
+    page pads its foot by, and it is the only place the height is written.
+    Nothing else may hardcode it.
+
+    viewport-fit=cover in Base.astro is what makes the env() resolve to a
+    real value on a notched iPhone rather than to zero.
+  */
+  --glaze-bar-block-size: calc(var(--glaze-bar-rail) + env(safe-area-inset-bottom, 0px));
+
+  /*
+    How far the pooled gloss stops short of the bottom of the rail. It starts
+    at the top edge, because that is where the wash runs from.
+  */
+  --glaze-pool-foot: 6px;
+
+  /*
+    The widest the pool and the gold mark above it may get. A brush stroke is
+    the width of a brush. On a phone every cell is narrower than this and the
+    max() below collapses to zero, so the pool fills its cell exactly as it
+    always did. Only in the tweener band, where four cells share 626px or
+    more, does the cap do anything. See the note on the pool itself.
+  */
+  --glaze-pool-span: 7.5rem;
+  --glaze-pool-inset: max(0px, calc((100% - var(--glaze-pool-span)) / 2));
+
+  /* ---- The film -------------------------------------------------- */
+
+  /*
+    Warm at the top where the light lands, deeper at the bottom where the
+    wash gathers. Both are translucent, and how translucent is a contrast
+    decision rather than a taste one: at 80 percent over pure black, the
+    worst backdrop this site could ever put behind the bar, the composited
+    film is #bfb8a8 and the two inks on it measure 7.42:1 and 4.71:1. Both
+    clear WCAG AA. Do not thin these further: 80 is the floor, and the real
+    composited numbers are measured rather than trusted, in the note in
+    docs/DECISIONS.md D-009.
+  */
+  --glaze-film-top: color-mix(in oklab, var(--color-paper) 80%, transparent);
+  --glaze-film-bottom: color-mix(in oklab, var(--color-sesame) 86%, transparent);
+
+  /* ---- The light -------------------------------------------------- */
+
+  /*
+    Every highlight in this bar is mixed from the gold before it is mixed
+    with anything else, so nothing here can come out as a white glass
+    specular by accident.
+  */
+  --glaze-lit: color-mix(in oklab, var(--color-eggwash) 24%, var(--color-paper));
+
+  --glaze-catch-strong: var(--glaze-lit);
+  --glaze-catch-mid: color-mix(in oklab, var(--glaze-lit) 62%, transparent);
+  --glaze-catch-weak: color-mix(in oklab, var(--glaze-lit) 18%, transparent);
+
+  /* The wide warm bloom, and the smaller second catch further along. */
+  --glaze-bloom: color-mix(in oklab, var(--color-eggwash) 17%, transparent);
+  --glaze-bloom-far: color-mix(in oklab, var(--glaze-lit) 32%, transparent);
+
+  /* The caramelised rim, and the depth the bar casts up the page. */
+  --glaze-rim: color-mix(in oklab, var(--color-eggwash-ink) 40%, transparent);
+  --glaze-cast: color-mix(in oklab, var(--color-crust) 26%, transparent);
+
+  /* ---- The pool, which is how the current page is marked ---------- */
+
+  /*
+    Thick where it runs off the rim, thinning as it spreads down the cell.
+    Two stops of the same colour rather than two colours, because it is one
+    substance at two depths, and that is the whole reason it reads as liquid
+    rather than as a tinted rectangle.
+  */
+  --glaze-pool-base: color-mix(in oklab, var(--color-eggwash) 26%, var(--color-sesame));
+  --glaze-pool: color-mix(in oklab, var(--glaze-pool-base) 88%, transparent);
+  --glaze-pool-thin: color-mix(in oklab, var(--glaze-pool-base) 30%, transparent);
+  /* The meniscus. Where the pool ends, its edge catches the light. */
+  --glaze-pool-lit: color-mix(in oklab, var(--glaze-lit) 90%, transparent);
+}
+
+/*
+  Above the tablet floor the header nav is on one line beside the wordmark
+  and a bar repeating it is furniture, so it goes away. 48rem is the same
+  edge SiteHeader's companion, StickyOrderBar.astro, uses.
+
+  The rail goes to zero rather than the whole variable, so
+  --glaze-bar-block-size keeps resolving to exactly the home indicator inset.
+  That is what lets the two spacing rules further down run unconditionally:
+  at these widths they hand the footer back the same env() padding it sets
+  for itself, and no media query has to be kept in step with this one.
+*/
+@media (min-width: 48rem) {
+  :root {
+    --glaze-bar-rail: 0rem;
+  }
+
+  .glaze-bar {
+    display: none;
+  }
+}
+
+/*
+  Short viewports. The shape and height conditions are the ones from the rule
+  at the foot of src/styles/breakpoints.css, and they are here for the same
+  reason: the iPhone Duo folded is 466 by 678 and every phone in landscape is
+  worse, so height is the scarce dimension and 56px of it is a lot to spend
+  on furniture. The target stays at 48 by 48, still past the 44 minimum.
+
+  THE WIDTH CONDITION IS NOT THE ONE IN THAT FILE, AND IT MUST NOT BE. The
+  shape rule there caps at 63.9375rem because it is moving type and rhythm,
+  which exist at every width. This rule moves the height of a bar that does
+  not exist above 48rem, so it has to stop where the bar does.
+
+  Copied verbatim, at 1023px, it reached past the hide rule above and set the
+  rail back to 3rem on a viewport where the bar is display:none. Every
+  consumer of --glaze-bar-block-size then reserved 48px for it: an iPhone Pro
+  Max in landscape is 932 by 430, so the footer of every page ended with
+  48px of padding under its last line and nothing standing in it, and
+  scroll-padding-bottom held focus 60px off the floor. Found by sweeping the
+  landscape viewports in docs/DEVICES.md and printing the footer padding
+  beside the bar's display value.
+*/
+@media (max-width: 47.9375rem) and (min-aspect-ratio: 1 / 1.6) and (max-height: 44rem) {
+  :root {
+    --glaze-bar-rail: 3rem;
+    --glaze-pool-foot: 4px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The bar                                                             */
+/* ------------------------------------------------------------------ */
+
+.glaze-bar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  /* Over the sticky order bar at 20 and the masthead at 40, under the skip
+     link at 100, which has to be reachable over everything. */
+  z-index: 45;
+
+  /* The home indicator sits inside the bar, under the row of targets. */
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+
+  /* The film. Warm where the light lands, deeper where the wash gathers. */
+  background-image: linear-gradient(
+    to bottom,
+    var(--glaze-film-top),
+    var(--glaze-film-bottom)
+  );
+
+  /*
+    Depth, cast upward onto the page rather than downward off the screen.
+    Tight and warm, in the manner of --lift-3 in tokens.css, so the bar reads
+    as sitting close above the page rather than floating in front of it.
+  */
+  box-shadow: 0 -10px 24px -20px var(--glaze-cast);
+
+  /*
+    The adaptive half of the material. `saturate` is the one that carries the
+    look: it pulls the colour out of whatever is behind the bar and lets it
+    bleed through the film, which is why the bar goes gold over a photograph
+    of a tray and stays cream over the page ground. `blur` is what stops what
+    is behind the bar reading as content: without it the home page heading is
+    legible straight through the film and sits under the labels.
+
+    Neither is free and neither is separately expensive. The two together cost
+    one extra compositor render pass, and that pass is the whole bill: drop
+    either function and the price is the same. The measurement is at the top
+    of this file. Take the property away entirely or leave it alone.
+  */
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+}
+
+/*
+  The specular, in one layer that never takes a tap. Four gradients, painted
+  bottom of the list upward:
+
+    the caramelised rim, one pixel, at the very top edge
+    the brushed catch just inside it, uneven along its length
+    the wide warm bloom, off centre to the left
+    a smaller second catch to the right, so the light is not symmetrical
+
+  The two bloom centres sit ABOVE the bar (negative y in the position), so
+  what falls inside it is the lower skirt of each, which is how a highlight
+  on a curved wet surface actually reaches the eye. The stop percentages are
+  deliberately not round numbers and deliberately do not repeat: a highlight
+  on a hand brushed top has no rhythm, and the moment this reads as a rhythm
+  it stops being egg wash and starts being a pattern swatch.
+*/
+.glaze-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(58% 150% at 81% -35%, var(--glaze-bloom-far), transparent 62%),
+    radial-gradient(120% 190% at 27% -55%, var(--glaze-bloom), transparent 64%),
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--glaze-catch-strong) 9%,
+      var(--glaze-catch-weak) 27%,
+      var(--glaze-catch-strong) 44%,
+      var(--glaze-catch-weak) 58%,
+      var(--glaze-catch-mid) 76%,
+      transparent 96%
+    ),
+    linear-gradient(var(--glaze-rim), var(--glaze-rim));
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 3px,
+    100% 1px;
+  background-position:
+    0 0,
+    0 0,
+    0 1px,
+    0 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* The row                                                             */
+/* ------------------------------------------------------------------ */
+
+.glaze-bar__list {
+  display: flex;
+  align-items: stretch;
+  /* The floor between two tap targets, per the brief. */
+  gap: 8px;
+  block-size: var(--glaze-bar-rail);
+  /*
+    The gutter at the two ends of the row is chrome rather than type, so it
+    is capped at the 10px it is drawn as instead of growing with the
+    reader's font size. At 200 percent on a 320px screen those two ends were
+    40px of the 320 the five labels had to share, and the row needs the
+    width more than the design needs the air. 0.625rem is that same 10px at
+    the default, so nothing moves for a reader who has changed nothing.
+  */
+  padding-inline: min(0.625rem, 10px);
+  margin: 0;
+  list-style: none;
+}
+
+/*
+  flex-basis stays at auto, so the free space is shared out on top of each
+  label's own width rather than instead of it. A long word like Questions
+  keeps the room it needs and a short one like Cart gives its spare room
+  back, which is what keeps five items on a 344px Galaxy Fold cover screen
+  without any of them dropping under the minimum target below.
+*/
+.glaze-bar__item {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.glaze-bar__link {
+  position: relative;
+  /*
+    A stacking context of its own, so the pool below and the label above are
+    ordered inside this cell and nowhere else. The reason it is here rather
+    than left at auto is the focus ring: an outline is painted last within
+    the stacking context that owns it, and without this the pool, which is
+    absolutely positioned and therefore painted later than the link, went
+    over the top of the ring and washed it out to a pale blue. Found by
+    screenshotting a focused cell at 4x, not by reading the specification.
+  */
+  z-index: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The whole cell is the target, not just the word inside it. */
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  border-radius: var(--radius-md);
+  color: var(--color-crust-soft);
+  /*
+    The token, unless the screen physically cannot hold five words of it.
+
+    The label scales with the reader's browser font size, as everything on
+    this site does, and five labels across a phone is the one row where that
+    runs out of room rather than just getting taller. With the font size at
+    32px on a 344px screen the row read "Ho... Sh... G... Questi...", which
+    is not navigation. The ellipsis is the right last resort for a label
+    that is too long, and the wrong answer for a screen that is too narrow.
+
+    5vw is the width one label may take when four or five of them are
+    sharing the row, after the 40px of side padding and the 8px gaps are
+    paid for. It only ever binds below about 260px at the default font size,
+    which is narrower than any screen that exists, so nothing moves for a
+    reader who has changed nothing. Turn the text up and the labels grow
+    with it until the row is full, and then they grow with the screen
+    instead. Complete words at 20px beat truncated ones at 26px.
+  */
+  font-size: min(var(--text-xs), 5vw);
+  font-weight: 500;
+  letter-spacing: 0.004em;
+  text-decoration: none;
+  /* The grey flash Android draws on tap is the one cold thing that could
+     appear on this bar. The press state below replaces it. */
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.glaze-bar__label {
+  position: relative;
+  /* Above the pooled gloss, which is drawn behind it. */
+  z-index: 1;
+  /* Flex blockifies it, so this really does shrink and really does clip. */
+  min-inline-size: 0;
+  /*
+    `normal` rather than a number, and the reason is the `overflow: hidden`
+    six lines down. That property is here to clip HORIZONTALLY, so a long
+    label ellipsises rather than pushing the row wide, but overflow has no
+    axis: it clips the top and the bottom of the line box as well.
+
+    A number below the font's own line height makes that box shorter than
+    the glyphs inside it, so the clip lands on the type. At 1.2 the box was
+    23px around a 25px content area once the browser font size was turned up
+    to 24px, taking a pixel off the ascender and a pixel off the descender of
+    every label. `normal` is whatever the loaded face asks for, so the box
+    always contains its own glyphs: in the Armenian face, in the fallback,
+    and in whatever a reader has substituted for either.
+
+    It costs no height. The rail is a fixed block-size and the link centres
+    the label inside it, so nothing on the bar moves.
+  */
+  line-height: normal;
+  white-space: nowrap;
+  /* A label is never allowed to push the row wider than the screen. If one
+     ever gets here, scripts/check-viewports.mjs fails the build on clipped
+     text, which is the correct outcome: a truncated navigation label is a
+     bug in the label, not something to hide behind an ellipsis. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ------------------------------------------------------------------ */
+/* The pool: where the wash gathers                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+  One element does three jobs, because they are the same thing at three
+  strengths: the hint under the pointer, the press, and the page you are on.
+
+  It is drawn as wash that ran off the rim and down the cell: thick where it
+  left the edge, thinning as it spreads, with a lit line along the bottom
+  where the pool ends and its edge catches the light. Square at the top so it
+  meets the rim, rounded at the foot so it reads as liquid finding its own
+  shape rather than as a rectangle somebody drew.
+
+  WHY IT HAS A MAXIMUM WIDTH. A brush stroke is the width of a brush, not the
+  width of whatever it is painted on. Below about 520px the cells are narrower
+  than --glaze-pool-span and the pool simply fills its cell, which is the
+  phone case and the common one. Above that the cells grow: in the tweener
+  band a 626px iPhone Duo unfolded gives each of four cells 300px, and a pool
+  that wide stopped reading as wash and started reading as a selected tab in
+  somebody's desktop toolbar. Capped, it stays a mark the size of a thumb
+  wherever the screen goes, and the gold on the rim above it is cut to exactly
+  the same width, so the two read as one thing: the light on the edge the wash
+  ran off, and the wash below it.
+*/
+.glaze-bar__link::before {
+  content: "";
+  position: absolute;
+  /* Behind the label and behind the focus ring. See the note on the link. */
+  z-index: -1;
+  /* Starts at the rim, stops short of the foot of the rail. */
+  inset-block: 0 var(--glaze-pool-foot);
+  inset-inline: var(--glaze-pool-inset);
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  border-end-start-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+  background-image: linear-gradient(
+    to bottom,
+    var(--glaze-pool) 0%,
+    var(--glaze-pool-thin) 100%
+  );
+  box-shadow: inset 0 -1px 0 0 var(--glaze-pool-lit);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .glaze-bar__link:hover {
+    color: var(--color-crust);
+  }
+
+  .glaze-bar__link:hover::before {
+    opacity: 0.5;
+  }
+}
+
+/*
+  The press. This is the whole of the bar's motion budget: a thumb lands and
+  the wash gathers under it. 120ms, because anything slower reads as the
+  interface thinking rather than as a surface responding.
+*/
+.glaze-bar__link:active::before {
+  opacity: 0.85;
+}
+
+/* ------------------------------------------------------------------ */
+/* The page you are on                                                 */
+/* ------------------------------------------------------------------ */
+
+/*
+  Three cues, and only one of them is colour, because WCAG 1.4.1 is the
+  reason this bar is not just a row of gold text.
+
+    the pool      the cell is visibly filled with wash that ran off the rim
+    the mark      a gold brush stroke on the rim, above that cell alone
+    the weight    600 against 500, and the darker of the two inks
+
+  A reader who cannot separate the two inks still has a shape in two places
+  that no other cell has.
+*/
+.glaze-bar__link[aria-current="page"] {
+  color: var(--color-crust);
+  font-weight: 600;
+}
+
+.glaze-bar__link[aria-current="page"]::before {
+  opacity: 1;
+}
+
+/*
+  The mark sits ON the rim, overpainting the caramel hairline with gold for
+  exactly the width of the pool below it. It reads as the light catching where
+  the wash ran thickest, which is exactly what it is meant to mean. Soft at
+  both ends, because a brush does not stop square.
+*/
+.glaze-bar__link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: var(--glaze-pool-inset);
+  block-size: 3px;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-eggwash) 24%,
+    var(--glaze-lit) 50%,
+    var(--color-eggwash) 76%,
+    transparent 100%
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Focus                                                               */
+/* ------------------------------------------------------------------ */
+
+/*
+  The ring has to survive the translucency, and the honest way to guarantee
+  that is to stop guessing what is behind it. The focused cell fills with the
+  pool at full strength, so the ring is drawn against a known warm ground
+  where --color-link measures 7.9:1, whatever photograph happens to be
+  scrolling past underneath.
+
+  The offset is negative so the ring draws inside the cell. At offset +2 the
+  top of it would stand above the bar with nothing behind it, and the bar is
+  the last thing on the screen, so there is no room outward to give.
+*/
+.glaze-bar__link:focus-visible {
+  outline: 3px solid var(--color-link);
+  outline-offset: -3px;
+  color: var(--color-crust);
+}
+
+.glaze-bar__link:focus-visible::before {
+  opacity: 1;
+  /*
+    Full cell width here, unlike the pool, and the cap above deliberately does
+    not apply. The ring is drawn at the edges of the CELL, so the known ground
+    has to reach the edges of the cell too. Capped, the ring would stand on
+    the plain film again at any width where the cap bites, which is the one
+    place this whole rule exists to prevent.
+  */
+  inset-inline: 0;
+  /* Flat and opaque under the ring, rather than the graded pool, so the
+     ground the ring is measured against is one known colour. */
+  background-image: none;
+  background-color: var(--color-paper);
+}
+
+/* ------------------------------------------------------------------ */
+/* The room the bar takes, so it never covers the last thing on a page */
+/* ------------------------------------------------------------------ */
+
+/*
+  Both rules read --glaze-bar-block-size and nothing else, and both are
+  unconditional: above 48rem the rail is zero, so the value collapses to the
+  home indicator inset, which is exactly the padding the footer sets for
+  itself. One number, one place.
+
+  :has() so a page that does not carry the bar gains nothing. Every page
+  composes Base.astro today, so that is a guard rather than a live case.
+
+  WHY :last-of-type IS IN THERE. SiteFooter.astro sets its own
+  `padding-bottom: env(safe-area-inset-bottom)` from a scoped rule, and Astro
+  compiles a scoped rule to `.footer[data-astro-cid-nns7i3if]`, which is
+  0,2,0. Without the extra pseudo-class this selector is 0,1,2, it loses, and
+  the last line of the footer sits under the bar with nothing to say it is
+  there. That was the actual bug, found by screenshotting the foot of the
+  home page at 390 rather than by reading the cascade. Body has exactly one
+  footer, so the pseudo-class costs nothing but the specificity it is here
+  for. The value replaces that env() rather than adding to it, because
+  --glaze-bar-block-size already contains the same inset.
+*/
+body:has(.glaze-bar) > footer:last-of-type {
+  padding-block-end: var(--glaze-bar-block-size);
+}
+
+/*
+  The other half of the same problem, and it is the one that gets forgotten.
+  A browser only scrolls a newly focused control into view when it is not
+  already inside the viewport, so a link whose bottom edge sits under the bar
+  is left exactly where it is, with its focus ring behind the glaze. This
+  widens what counts as in view. global.css does the same thing for the
+  sticky order bar, and the second rule adds the two together on the pages
+  that carry both.
+*/
+html:has(.glaze-bar) {
+  scroll-padding-bottom: calc(var(--glaze-bar-block-size) + 0.75rem);
+}
+
+html:has(.glaze-bar):has([data-order-bar]) {
+  scroll-padding-bottom: calc(var(--glaze-bar-block-size) + 5.5rem);
+}
+
+/*
+  NOT THIS FILE'S COMPONENT, and flagged as such in the handover.
+
+  StickyOrderBar.astro pins itself to bottom: 0 on a product page below
+  48rem, which is now underneath this bar. It has to sit on top of it
+  instead. Two declarations, both of which belong in that component the
+  moment somebody owns it: the offset, and dropping its own home indicator
+  padding, which the glaze bar below it is already paying for.
+*/
+body:has(.glaze-bar) [data-order-bar] {
+  inset-block-end: var(--glaze-bar-block-size);
+  padding-block-end: 0.6rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Reduced transparency                                                */
+/* ------------------------------------------------------------------ */
+
+/*
+  Solid, and still deliberate. Only the two film stops change: the rim, the
+  brushed catch, the bloom and the pool are painted colour rather than see
+  through, so all of them still draw and the bar reads as the matte version
+  of the same object. The blur goes with the translucency, because filtering
+  a backdrop nobody can see through is pure cost.
+*/
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glaze-film-top: var(--color-paper);
+    --glaze-film-bottom: var(--color-sesame);
+  }
+
+  .glaze-bar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/*
+  Same treatment where the browser has no backdrop-filter at all. Without
+  this the film would be an 84 percent wash over unblurred, unsaturated page
+  content, which is the one version of this bar that would look like a
+  mistake.
+*/
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  :root {
+    --glaze-film-top: var(--color-paper);
+    --glaze-film-bottom: var(--color-sesame);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Forced colours                                                      */
+/* ------------------------------------------------------------------ */
+
+/*
+  Windows High Contrast, and anything else that turns forced-colors on.
+
+  This bar is painted almost entirely in background-IMAGES: the film, the
+  specular, the pool and the gold mark are all gradients. Forced colours
+  discards every one of them, and it does not put anything back, because the
+  bar declares no background-COLOR for it to force. Read in the browser
+  rather than guessed at: the computed film came back rgba(0,0,0,0), so the
+  page scrolled straight through the bar and four links floated over moving
+  body copy, with font-weight the only surviving mark of the current page.
+  That is worse than the no-backdrop-filter fallback above, and it is the
+  same failure, so it gets the same answer.
+
+  System colour keywords are used deliberately. They are the one kind of
+  colour forced-colors honours, and they take the reader's own palette rather
+  than imposing this one, which is the entire point of the mode.
+*/
+@media (forced-colors: active) {
+  .glaze-bar {
+    /* A ground, so the bar is a bar and not four links over the page. */
+    background-color: Canvas;
+    /* Nothing to see through now, so nothing to spend a filter on. */
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /*
+    The rim, on the specular layer rather than on the bar, because that layer
+    is absolutely positioned and box-sizing is border-box site wide, so the
+    border draws inside it and the height of the bar does not move. If it
+    moved, --glaze-bar-block-size would be a pixel short of the truth and the
+    footer would sit a pixel under the rim.
+  */
+  .glaze-bar::before {
+    border-block-start: 1px solid CanvasText;
+  }
+
+  /*
+    The page you are on. The pool is a gradient and cannot survive here, so
+    the mark on the rim carries it, repainted as a solid 3px bar. With the
+    600 weight that is two cues, neither of them colour, which is what the
+    mode is for.
+  */
+  .glaze-bar__link[aria-current="page"]::after {
+    background-color: LinkText;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Reduced motion                                                      */
+/* ------------------------------------------------------------------ */
+
+/*
+  There is no ambient animation in this bar to switch off, which is the
+  point. This states it, so that anyone who later adds a drifting sheen finds
+  the rule that says it may not run here. global.css already flattens every
+  transition on the site under this preference; naming the press explicitly
+  keeps this component honest on its own.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .glaze-bar,
+  .glaze-bar::before,
+  .glaze-bar__link,
+  .glaze-bar__link::before,
+  .glaze-bar__link::after {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Print                                                               */
+/* ------------------------------------------------------------------ */
+
+/* An allergen page printed for a kitchen wall carries no navigation bar. */
+@media print {
+  .glaze-bar {
+    display: none;
+  }
+}

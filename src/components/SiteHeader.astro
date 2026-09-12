@@ -13,7 +13,15 @@ const isHere = (href: string) =>
   href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
 
 const links = [
-  { href: "/shop", label: "Shop", when: storeOpen },
+  /*
+    Shown in both states, and it used to be hidden while the store was closed.
+    That was wrong twice over. /shop in the closed state is "What will be for
+    sale": it carries the product, the tray sizes, the allergen line and how an
+    order will work, which makes it the most useful page on the site after the
+    home page. And the bottom bar was already linking to it, so the two
+    navigations on the same page disagreed about whether it existed.
+  */
+  { href: "/shop", label: "Shop", when: true },
   { href: "/gata", label: "What gata is", when: true },
   { href: "/story", label: "Story", when: true },
   { href: "/faq", label: "Questions", when: true },

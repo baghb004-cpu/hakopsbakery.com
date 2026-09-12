@@ -80,11 +80,26 @@ const { name, price = null, href, label, note = null, class: className = "" } = 
     justify-content: space-between;
     /* Eight pixels is the floor between tap targets. This is more. */
     gap: 0.75rem 1rem;
+    /*
+      The bar takes a second row rather than eating its own words.
+
+      Without this the row is fixed at one line, the text column is the only
+      thing that can give, and the two lines in it truncate. With the browser
+      font size at 24px on a 390px phone that read "Armenia..." over
+      "Not taking ...", which is the one sentence on the page that says the
+      store is shut. Losing it to an ellipsis is a WCAG 1.4.4 failure, not a
+      cosmetic one. Wrapped, the text keeps its line and the action drops
+      underneath it, which costs about 50px of a page that scrolls anyway.
+    */
+    flex-wrap: wrap;
   }
 
   .order-bar__text {
     margin: 0;
     min-width: 0;
+    /* Take the row back off the action when there is room for both, so the
+       common case is still one line with the button on the right. */
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     line-height: var(--leading-snug);
@@ -106,12 +121,18 @@ const { name, price = null, href, label, note = null, class: className = "" } = 
     color: var(--color-crust-soft);
   }
 
+  /*
+    The note wraps where the name truncates, and the asymmetry is deliberate.
+    A product name has a heading directly above it carrying the whole thing,
+    so an ellipsis there loses nothing. This line is the only place the page
+    says the store is not open yet, and half of that sentence is worse than
+    two lines of it. At 320px with the browser font size at its largest it
+    genuinely needs both.
+  */
   .order-bar__note {
     font-size: var(--text-sm);
     color: var(--color-crust-soft);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-wrap: pretty;
   }
 
   /* The child component's root, reached deliberately. A class passed to a

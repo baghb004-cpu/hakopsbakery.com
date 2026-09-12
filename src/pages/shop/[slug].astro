@@ -55,6 +55,7 @@ import {
   type ProductImage,
 } from "@lib/catalog";
 import { formatMoneyRange } from "@lib/money";
+import Breadcrumbs from "@components/Breadcrumbs.astro";
 
 export async function getStaticPaths() {
   const products = await listProducts();
@@ -132,11 +133,21 @@ const leadUnit = product.leadTimeDays === 1 ? "day" : "days";
 
 const sizeLine = product.variants.map((variant) => variant.label.toLowerCase()).join(" or ");
 
-const description = `${product.description} Ingredient list, allergens and storage in full.`;
+/*
+  The search and share description. `product.description` is written for the
+  page, where there is room for three sentences. A search result cuts one off
+  nearer 160 characters, so the tail of a long one is written for nobody. A
+  short description is used whole; a long one contributes its opening
+  sentence, and the rest is still on the page itself.
+*/
+const openingSentence = product.description.split(/(?<=\.)\s+/)[0] ?? product.description;
+const summary = product.description.length <= 128 ? product.description : openingSentence;
+const description = `${summary} Ingredient list, allergens and storage in full.`;
 ---
 
 <Base title={product.name} description={description}>
   <div class="page band--tight">
+    <Breadcrumbs trail={[{ label: "Shop", href: "/shop/" }, { label: product.name }]} />
     <div class="product">
       <figure class="product__media">
         {
@@ -480,6 +491,11 @@ const description = `${product.description} Ingredient list, allergens and stora
 
   .product {
     display: grid;
+    /* Stated, for the same reason as .shelf on the home page: an implicit
+       track is auto, and an auto track takes the widest min-content in it
+       whether or not the screen has that much room. The two column rule
+       further down replaces it. */
+    grid-template-columns: minmax(0, 1fr);
     gap: clamp(1.25rem, 4vw, 2.5rem);
     align-items: start;
   }

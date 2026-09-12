@@ -9,43 +9,178 @@ they take seconds:
 
 ```
 node scripts/check-copy.mjs     # em dashes, the recipe, design tells
-npm run verify                  # copy guard, type check, tests, build gate
+npm run verify                  # copy, contrast, types, tests, build, HTML,
+                                # and the viewport sweep in a real browser
 ```
 
 ---
 
-## 1. Width matrix
+## 1. The device matrix
 
-Every width, every page, in both states of `PUBLIC_STORE_OPEN`. The site has to
-render correctly closed and open, and closed is the state it ships in.
+Widths are CSS pixels, which is what a media query sees, not hardware pixels.
+Every number here comes from `docs/DEVICES.md`, which was measured rather than
+guessed. Add a device there first: the sweep reads that document, not this one.
 
-| Width | Represents | Checked |
+Most of this section is checked by machine:
+
+```
+npm run test:viewports          builds, serves dist, sweeps every width
+```
+
+It drives a real Chromium through Playwright. On a fresh clone that means one
+extra command, once: `npx playwright install chromium`. Nothing leaves the
+machine: the pages are served from a local port.
+
+It opens every page at every width below in a real browser and fails on
+horizontal overflow, on an interactive element under 44 by 44, on a form
+control whose computed size is under 16px, on text clipped by its container,
+on text wider than the box holding it, and on text cut off by a box further
+up. It names the width, the page and the element. It runs inside
+`npm run verify`, so a red pipeline is the first thing that should be read
+here.
+
+**It sweeps every width twice: at the browser default text size and at 24px,
+which is Chromium's largest preset and 150 percent.** That second pass is not
+decoration. Every length that matters here is in rem, and so are the six
+bands, so turning the browser font size up moves the layout as much as
+turning the phone sideways does. It is also the pass that catches the
+failures nobody looks for: a hero photograph eight pixels off the right hand
+edge at 320, a sticky order bar reading "Not taking ..." on the one line that
+says the store is shut, a footer wider than a Galaxy Fold, and a bottom bar
+reading "Ho... Sh... G...". Every one of those was clean at 16px.
+
+Turn the text up by hand as well, on a real phone. Android Chrome's text
+scaling slider goes to 200 percent, which is past anything the sweep runs.
+
+What it cannot see is whether the page looks right, whether the two columns
+land where a reader expects them, or whether a heading has swallowed the
+screen. That is what the boxes are for. Do them in both states of
+`PUBLIC_STORE_OPEN`: the site has to be correct closed and open, and closed is
+the state it ships in.
+
+### Portrait, by band
+
+| Width | Band | What it is | Looked at |
+| --- | --- | --- | --- |
+| 320 | narrow | The WCAG reflow floor. Not a device, a requirement | [ ] |
+| 344 | narrow | Galaxy Fold cover, 2019. The narrowest real screen | [ ] |
+| 360 | phone | Galaxy S. The most common width in the world | [ ] |
+| 375 | phone | iPhone SE, the narrowest current iPhone | [ ] |
+| 384 | phone | Galaxy S Ultra | [ ] |
+| 390 | phone | iPhone 13 to 16. The reference phone | [ ] |
+| 402 | phone | iPhone 16 Pro | [ ] |
+| 412 | phone | Pixel 9 and 10 | [ ] |
+| 430 | phone-wide | iPhone Pro Max | [ ] |
+| 452 | phone-wide | Galaxy Z Fold 7 cover, very tall | [ ] |
+| **466** | phone-wide | **iPhone Duo folded, 466 by 678.** See below | [ ] |
+| 520 | tweener | The floor of the dead zone | [ ] |
+| **626** | tweener | **iPhone Duo unfolded, 626 by 890.** See below | [ ] |
+| 744 | tweener | iPad mini, which lands under every stock tablet rule | [ ] |
+| 768 | tablet | iPad portrait | [ ] |
+| 800 | tablet | Galaxy Tab S9 | [ ] |
+| 820 | tablet | iPad 10.9 | [ ] |
+| 834 | tablet | iPad Pro 11 | [ ] |
+| 883 | tablet | Galaxy Z Fold 7 unfolded, nearly square | [ ] |
+| 1024 | desktop | iPad Pro 13, and the smallest laptop | [ ] |
+| 1180 | desktop | iPad 10.9 landscape | [ ] |
+| 1280 | desktop | Common laptop | [ ] |
+| 1440 | desktop | Larger laptop | [ ] |
+| 1920 | desktop | Desktop | [ ] |
+
+### Shape, which width alone does not catch
+
+A viewport can be wide and still have no room. These are the ones where height
+is the scarce dimension, and the shape rule in `src/styles/breakpoints.css`
+pulls the vertical rhythm in for them.
+
+| Viewport | What it is | Looked at |
 | --- | --- | --- |
-| 320 | The narrowest phone still in real use. The floor, not an edge case | [ ] |
-| 360 | The most common Android width in the wild | [ ] |
-| 390 | Current mainstream iPhone | [ ] |
-| 414 | Older large iPhone, still very common | [ ] |
-| 430 | Current large iPhone | [ ] |
-| 768 | Tablet portrait | [ ] |
-| 820 | Larger tablet portrait | [ ] |
-| 1024 | Tablet landscape, and the smallest laptop | [ ] |
-| 1280 | Common laptop | [ ] |
-| 1440 | Larger laptop | [ ] |
-| 1920 | Desktop | [ ] |
+| 466 x 678 | iPhone Duo folded. 1:1.45 where a phone is 1:2.2 | [ ] |
+| 678 x 466 | The same device on its side | [ ] |
+| 844 x 390 | iPhone 13 to 16 in landscape | [ ] |
+| 390 x 844 | The same phone upright, as the control | [ ] |
 
-At every width:
+- [ ] On every short viewport the first action is reachable without scrolling
+      past a hero that has eaten the screen.
+- [ ] Nothing depends on the address bar being collapsed or expanded. `svh` and
+      `dvh` only, never `vh`.
 
-- [ ] **Zero horizontal overflow.** Not "a little". None. Check by setting
-      `document.documentElement.scrollWidth` against `clientWidth`, and by
-      dragging the page sideways on a real phone.
+### The two that break ordinary breakpoints
+
+**466, the Duo folded.** Wider than any normal phone and 25 percent shorter.
+
+- [ ] The hero does not take more than about half the height.
+- [ ] The order action, or the waiting list when the store is closed, is
+      reachable in one thumb scroll.
+- [ ] Nothing assumes a tall screen: no sticky element leaves under a third of
+      the viewport for content.
+
+**626, the Duo unfolded.** A 7.6 inch screen reporting a number below every
+stock tablet breakpoint.
+
+- [ ] The page is NOT the 360px phone layout stretched. Two columns where a
+      pair belongs side by side, and a hero at the size a screen this size
+      deserves.
+- [ ] Line length stays inside 80 characters even though the column is wider.
+- [ ] Nothing has enormous empty margins with a narrow ribbon of content.
+
+**The fold itself is never detected.** Safari does not implement CSS Viewport
+Segments, so the first foldable iPhone cannot report its own hinge. Where the
+API exists, Chrome and Edge, it only widens a column gutter.
+
+- [ ] Turn the segments API off (any browser that lacks it, or a normal
+      desktop Chrome window) and the layout is unchanged apart from that
+      gutter. If anything moves, something has started depending on it.
+
+### At every width
+
+- [ ] **Zero horizontal overflow.** Not "a little". None. The sweep checks
+      `document.documentElement.scrollWidth` and every element box, but drag
+      the page sideways on a real phone as well.
 - [ ] No element forced wider than the viewport by a `min-width`, a long
       unbroken string, a table, or an image without `max-width`.
 - [ ] Tables, diagrams and code blocks scroll inside their own container, never
       by moving the page.
 - [ ] Body copy stays under 80 characters per line. Use `.prose-col`.
 - [ ] Tap targets are at least 44 by 44 CSS pixels and at least 8 pixels apart.
+      A link inside a sentence is exempt, a link inside a nav is not.
 - [ ] Prices and quantities use tabular figures (`class="tabular"`) so columns
       line up and digits do not shift as they change.
+
+### Still open in the layout system
+
+The bands move tokens, and the layout primitives in `global.css` read them. A
+component inherits all of it without owning a media query. Two of the three
+literals listed here are now gone, and the third is a design question rather
+than a mechanical one.
+
+- [x] **Done.** `src/components/Hero.astro` reads `var(--hero-block-max)`
+      rather than a literal `56svh`, so the shape rule reaches it: 44svh on
+      the Duo folded, which is 82 pixels of a 678px screen handed back to the
+      words under the photograph. On that device it is the difference between
+      the heading arriving under the bottom bar and arriving above it.
+- [x] **Done.** The same component pulls its photograph full bleed with
+      `calc(-1 * var(--gutter))` rather than a copy of the number. A band may
+      now change the page gutter without leaving a sliver of ground down each
+      side of that photograph. The narrow band still does not change it, and
+      the comment there says so.
+- [ ] The two column rules that components own all open well past the tweener:
+      `TrustBlock` at 46rem, `Hero` and `shop/[slug]` at 48rem, `index.astro`
+      at 52 and 54rem, `gata.astro` and `story.astro` at 56rem. Every one of
+      those leaves a 626px screen in a single column. The pairs that genuinely
+      read as pairs can take `.split` and open at 520 instead, which is the
+      whole reason the tweener band exists.
+
+      **Looked at, September 2026, and left alone deliberately.** The Duo
+      unfolded was screenshotted page by page. Nothing there is broken: the
+      prose pages fill the column and hold their measure, and the home hero's
+      plate spans the width with its heading and lede capped at 16 and 34
+      characters, which leaves paper to the right of the text but reads as a
+      composition rather than as a fault. Opening the hero at 520 makes it
+      worse rather than better: the aside has a 19rem floor, so at 626 the
+      photograph column would be 272px and the photograph 190px tall. Whoever
+      takes this on should decide it per component with the screen in front of
+      them, not by moving every breakpoint at once.
 
 ---
 
@@ -61,6 +196,7 @@ one real iOS device and one real Android device are required before sign off.
 | A real iPhone, current iOS, Safari | [ ] |
 | A real Android phone, Chrome | [ ] |
 | A real tablet, either platform | [ ] |
+| A foldable, folded and unfolded, if one can be borrowed. Section 1 says why | [ ] |
 | Hakop's own phone, because he will show the site to people on it | [ ] |
 
 Confirm this list against the family's copy of the brief, Section 10, and

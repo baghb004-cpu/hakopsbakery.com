@@ -11,6 +11,7 @@ import { preloadFonts } from "@lib/fonts";
 import { site, business, analytics } from "@config/site";
 import SiteHeader from "@components/SiteHeader.astro";
 import SiteFooter from "@components/SiteFooter.astro";
+import GlazeBar from "@components/GlazeBar.astro";
 
 interface Props {
   title: string;
@@ -175,6 +176,17 @@ const structuredDataJson = JSON.stringify(structuredData).replace(/</g, "\\u003c
     </main>
 
     <SiteFooter />
+
+    {
+      /*
+        The bottom navigation on a phone, hidden from 48rem up where the
+        header nav is already on one line. Last in the document because it
+        is last on the screen, so tab order and reading order agree. It
+        ships no JavaScript and it takes its space with static CSS, so it
+        costs nothing at load and shifts nothing when it paints.
+      */
+    }
+    <GlazeBar />
 
     {
       /*

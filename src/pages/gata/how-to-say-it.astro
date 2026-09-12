@@ -1,0 +1,134 @@
+---
+/**
+ * How to say it, and the other names.
+ *
+ * Its own page because a person who cannot say a word will not order it, and
+ * because "is nazook the same as gata" is a different search made by a
+ * different person from "what is gata". The two belong together though: the
+ * answer to both is one short page about the word rather than the pastry.
+ * See docs/DECISIONS.md D-008.
+ *
+ * Which name Hakop's own household uses is left for the family to answer. It
+ * is not guessed at here. See docs/HANDOVER.md section 6.
+ */
+import Explainer from "./_Explainer.astro";
+---
+
+<Explainer
+  slug="how-to-say-it"
+  seoTitle="How to say gata, and the other names"
+  description="Gata is two syllables, gah-TAH, with the second one stronger. It is written as Gata in Armenian script. Some households call the same pastry nazook, and some call it kata."
+>
+  <div class="prose-col">
+    <p class="say__lede">
+      Two syllables, the second one stronger.
+    </p>
+
+    <p class="say__word">
+      <span class="say__soft">gah</span>-<span class="say__stress">TAH</span>
+    </p>
+
+    <p class="say__detail">
+      Written <span lang="hy" class="say__native">Գաթա</span> in Armenian.
+    </p>
+
+    <h2 class="say__names-title">Nazook, kata, gata</h2>
+    <p>
+      The same pastry answers to more than one name, and which one a person
+      uses usually says where their family is from rather than what is in the
+      tray. Nazook and kata both turn up. If you grew up with one of those
+      words, this is that.
+    </p>
+
+    <div class="todo">
+      <p class="todo__label">
+        <span class="todo__seed" aria-hidden="true"></span>
+        For the family to answer
+      </p>
+      <p class="todo__body">
+        Which name Hakop's household uses, and how they say it, is theirs to
+        tell. When they do, it goes here in their words rather than in a
+        summary of them.
+      </p>
+    </div>
+  </div>
+</Explainer>
+
+<style>
+  .say__lede {
+    margin-top: 1.1rem;
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+    color: var(--color-crust-soft);
+  }
+
+  .say__word {
+    margin-top: 0.75rem;
+    font-family: var(--font-display);
+    font-size: var(--text-4xl);
+    line-height: 1.15;
+  }
+
+  .say__soft {
+    color: var(--color-crust-soft);
+  }
+
+  /* The stressed syllable, carried by weight and colour rather than by
+     setting the whole word in tracked out capitals. */
+  .say__stress {
+    color: var(--color-crust);
+    font-weight: 700;
+    border-bottom: 3px solid var(--color-eggwash);
+  }
+
+  .say__detail {
+    margin-top: 0.8rem;
+    color: var(--color-crust-soft);
+  }
+
+  .say__native {
+    font-family: var(--font-display);
+    color: var(--color-eggwash-ink);
+    font-size: var(--text-lg);
+  }
+
+  .say__names-title {
+    margin-top: 2.25rem;
+    font-size: var(--text-xl);
+  }
+
+  /* ---- Unanswered, marked as such ---- */
+
+  .todo {
+    margin-top: 1.35rem;
+    padding: clamp(0.9rem, 3vw, 1.35rem);
+    background-color: var(--color-paper);
+    border: 2px dashed var(--color-line-strong);
+    border-radius: var(--radius-md);
+  }
+
+  .todo__label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-warn);
+  }
+
+  .todo__seed {
+    flex: none;
+    width: 8px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--color-warn);
+    transform: rotate(-24deg);
+  }
+
+  .todo__body {
+    margin-top: 0.6rem;
+    color: var(--color-crust-soft);
+    max-width: 58ch;
+  }
+</style>

@@ -1,0 +1,164 @@
+---
+/**
+ * The trail from the home page down to the page you are on.
+ *
+ * Two jobs, and the second one is the reason this component exists rather
+ * than a line of markup in each template.
+ *
+ * 1. It tells a visitor who arrived from a search where they landed. Somebody
+ *    who searched "how long does gata keep" lands on one answer with no idea
+ *    that there are twelve more, and the trail is the way back up.
+ *
+ * 2. It emits BreadcrumbList structured data. That is what makes a Google
+ *    result show `hakopsbakery.com > Questions > How do I keep it` instead of
+ *    a bare URL, which is the difference between a result that reads as a
+ *    place and one that reads as a file.
+ *
+ * The home page does not get one, and neither do the two hubs: a trail with a
+ * single link in it is decoration. Anything below the top level gets one.
+ *
+ * The last item is the page you are on, so it is not a link, and it carries
+ * aria-current="page". Home is added here rather than passed in, so every
+ * trail on the site starts the same way.
+ */
+import { site } from "@config/site";
+
+export interface Crumb {
+  label: string;
+  /** Root relative. Ignored on the last crumb, which is the current page. */
+  href?: string;
+}
+
+interface Props {
+  /** The trail below the home page, ending with the current page. */
+  trail: Crumb[];
+  class?: string;
+}
+
+const { trail, class: className = "" } = Astro.props;
+
+if (trail.length === 0) {
+  throw new Error(
+    "Breadcrumbs was given an empty trail. A trail of Home on its own is not " +
+      "a breadcrumb, so leave the component off that page instead.",
+  );
+}
+
+const crumbs: Crumb[] = [{ label: "Home", href: "/" }, ...trail];
+
+/* The current page. A link to the page you are already on is noise, and
+   screen reader users get told twice. */
+const lastIndex = crumbs.length - 1;
+
+/** Absolute, because structured data is read outside the context of a page. */
+const absolute = (href: string | undefined): string =>
+  new URL(href ?? Astro.url.pathname, site.url).href;
+
+const breadcrumbList = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: crumbs.map((crumb, index) => ({
+    "@type": "ListItem",
+    /* Positions start at 1, and the trail is in order from the home page
+       down. Google reads the order from these, not from the markup. */
+    position: index + 1,
+    name: crumb.label,
+    item: absolute(index === lastIndex ? Astro.url.pathname : crumb.href),
+  })),
+};
+
+/* Same guard as Base.astro: JSON.stringify does not escape "<", so a label
+   containing "</script>" would close this block early. */
+const breadcrumbJson = JSON.stringify(breadcrumbList).replace(/</g, "\\u003c");
+---
+
+<nav class={`crumbs ${className}`.trim()} aria-label="Breadcrumb">
+  <ol class="crumbs__list">
+    {
+      crumbs.map((crumb, index) =>
+        index === lastIndex ? (
+          <li class="crumbs__item">
+            <span class="crumbs__here" aria-current="page">{crumb.label}</span>
+          </li>
+        ) : (
+          <li class="crumbs__item">
+            <a class="crumbs__link" href={crumb.href}>{crumb.label}</a>
+          </li>
+        ),
+      )
+    }
+  </ol>
+</nav>
+
+<script type="application/ld+json" set:html={breadcrumbJson} />
+
+<style>
+  .crumbs {
+    /* Sits above the h1 and reads as part of the heading block, not as a
+       separate bar with a rule under it. */
+    margin-bottom: 0.35rem;
+  }
+
+  .crumbs__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    /* Eight pixels between two targets, in both directions. The row gap only
+       does anything once the trail wraps, which is where two crumbs would
+       otherwise sit edge to edge on a narrow phone. */
+    gap: 0.5rem;
+  }
+
+  .crumbs__item {
+    display: flex;
+    align-items: center;
+    /* 44px rows, so a thumb on a phone lands on the crumb it aimed at even
+       though the text itself is small. */
+    min-height: 44px;
+    font-size: var(--text-sm);
+  }
+
+  /* The separator. A slash, which is how a path is written everywhere else,
+     and generated content so it is not in the reading order. */
+  .crumbs__item + .crumbs__item::before {
+    content: "/";
+    margin-right: 0.5rem;
+    color: var(--color-crust-soft);
+  }
+
+  .crumbs__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-link);
+    text-decoration: none;
+  }
+
+  .crumbs__link:hover {
+    color: var(--color-link-bright);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .crumbs__here {
+    color: var(--color-crust-soft);
+  }
+
+  /* The page you are on is not a target, so it does not need a target's
+     height. On a phone the trail wraps, and giving the last row 44px it
+     cannot use would put most of a thumb's worth of nothing above the h1. */
+  .crumbs__item:last-child {
+    min-height: 0;
+  }
+
+  /* At the narrowest widths the trail wraps rather than pushing the page
+     sideways, and the rows keep their eight pixels. */
+  @media (max-width: 26rem) {
+    .crumbs__list {
+      gap: 0.5rem 0.4rem;
+    }
+  }
+</style>

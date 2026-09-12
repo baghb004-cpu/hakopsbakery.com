@@ -63,6 +63,87 @@
 
 
 # ---------------------------------------------------------------------------
+# The questions, and the pages about gata
+#
+# Both used to be one long page with headings. Every answer is now its own
+# page, because a fragment cannot carry its own title, its own description, or
+# its own position in a search result. See docs/DECISIONS.md D-008.
+#
+# WHAT A REDIRECT CAN AND CANNOT DO HERE.
+#
+# A fragment never leaves the browser. `/faq#delivery` arrives at this server
+# as `/faq`, so no rule below can catch one, and writing one would be a rule
+# that silently never fires. The old fragments are handled in the pages
+# instead: every question on /faq keeps the id it had, and every card on /gata
+# keeps the id of the section it replaced, so an old link lands on the right
+# entry next to the link to its page.
+#
+# What is left for this file is the two paths that changed, plus the plural
+# and singular forms of the two hubs that people type by hand.
+# ---------------------------------------------------------------------------
+
+# Two questions were given clearer slugs on the way across. The old id is what
+# an old fragment says, so somebody retyping one as a path lands correctly.
+[[redirects]]
+  from   = "/faq/open"
+  to     = "/faq/when-can-i-order/"
+  status = 301
+
+[[redirects]]
+  from   = "/faq/cancel"
+  to     = "/faq/cancel-or-change/"
+  status = 301
+
+# The questions hub answers to the obvious other spellings of itself.
+[[redirects]]
+  from   = "/faqs"
+  to     = "/faq/"
+  status = 301
+
+[[redirects]]
+  from   = "/questions"
+  to     = "/faq/"
+  status = 301
+
+# The sections that /gata used to hold, at the paths a person would guess for
+# them, pointed at the pages they became.
+[[redirects]]
+  from   = "/gata/ingredients"
+  to     = "/gata/what-is-in-it/"
+  status = 301
+
+[[redirects]]
+  from   = "/gata/serve"
+  to     = "/gata/how-to-serve-it/"
+  status = 301
+
+[[redirects]]
+  from   = "/gata/storage"
+  to     = "/faq/storage/"
+  status = 301
+
+[[redirects]]
+  from   = "/gata/how-to-keep-it"
+  to     = "/faq/storage/"
+  status = 301
+
+[[redirects]]
+  from   = "/gata/pronunciation"
+  to     = "/gata/how-to-say-it/"
+  status = 301
+
+[[redirects]]
+  from   = "/gata/nazook"
+  to     = "/gata/how-to-say-it/"
+  status = 301
+
+# Deliberately no catch all under /gata or /faq. Netlify already answers an
+# unknown path with dist/404.html, and a wildcard here would sit in front of
+# every generated page in those two directories for the sake of a case that
+# is already handled.
+
+
+# ---------------------------------------------------------------------------
 # Security headers
 # ---------------------------------------------------------------------------
 

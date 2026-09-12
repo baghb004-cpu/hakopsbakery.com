@@ -45,9 +45,15 @@ const heroStatus = anythingBuyable
   One lede, true in both states. The status line above the heading carries
   whether the shop is open, so the lede does not have to hedge about it.
 */
+/*
+  One sentence, not two. The second used to read "Baked in Cypress, sold by
+  the tray", which the headline directly above it already says, and it cost
+  two lines of a hero that had none spare. Where it is sold by the tray is
+  said again on the product card, where somebody is actually deciding.
+*/
 const heroLede =
   "Rolled dough with a sweet nut filling, sliced into pieces, washed gold " +
-  "and scattered by hand with sesame. Baked in Cypress, sold by the tray.";
+  "and scattered by hand with sesame.";
 
 /*
   720 is in this ladder to close a gap. 530 to 1060 is a doubling with nothing
@@ -207,7 +213,7 @@ const STORY_WIDTHS = [360, 530, 720, 1060];
                 </p>
               )}
               <p>
-                <a href="/gata">What gata is, and how to say it</a>
+                <a href="/gata">What gata is</a>, and <a href="/gata/how-to-say-it/">how to say it</a>
               </p>
             </aside>
           )
@@ -313,6 +319,10 @@ const STORY_WIDTHS = [360, 530, 720, 1060];
 
   .shelf {
     display: grid;
+    /* Stated, so the single column cannot be widened past the screen by the
+       min-content of a card inside it. An implicit track is auto, and auto
+       has no upper bound. The .shelf--single rule below replaces this. */
+    grid-template-columns: minmax(0, 1fr);
     gap: clamp(1.25rem, 3.5vw, 2.25rem);
     margin-top: clamp(1.25rem, 3vw, 1.75rem);
   }
