@@ -34,6 +34,12 @@ Thumbs.db
 
 # Scratch. Nothing in here is part of the site.
 scratch/
+
+# scripts/make-preview.mjs writes here: a rewritten copy of dist/ for viewing
+# somewhere that has no server to resolve directory URLs. Generated output, the
+# same five megabytes as dist/, and it belongs in a commit no more than dist/
+# does. The script is committed. Its output is not.
+preview/
 *.local
 
 # Throwaway probes written while investigating a bug. A probe that proves
